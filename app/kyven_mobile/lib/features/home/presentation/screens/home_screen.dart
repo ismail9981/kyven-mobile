@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_route.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../application/home_dashboard_providers.dart';
 import '../widgets/home_hero.dart';
 import '../widgets/home_sections.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dashboard = ref.watch(homeDashboardProvider);
+
     return AppScaffold(
       padding: EdgeInsets.zero,
       body: SingleChildScrollView(
@@ -20,30 +24,39 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AppEntrance(child: HomeHeader()),
+              AppEntrance(child: GreetingHero(dashboard: dashboard)),
               const SizedBox(height: AppSpacing.xl),
               AppEntrance(
-                child: WeeklyHero(
-                  onStart: () => context.goNamed(AppRoute.run.name),
+                child: StartRunHeroCard(
+                  dashboard: dashboard,
+                  onStartRun: () => context.goNamed(AppRoute.run.name),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              const AnimatedStats(),
-              const SizedBox(height: AppSpacing.xl),
-              const DailyChallenge(),
-              const SizedBox(height: AppSpacing.xl),
-              const AppSectionHeader(
-                title: 'Today’s signal',
-                subtitle: 'Built around your current rhythm',
+              AppEntrance(
+                child: TodayActivitySection(metrics: dashboard.todayMetrics),
               ),
-              const SizedBox(height: AppSpacing.md),
-              const TrainingSignal(),
               const SizedBox(height: AppSpacing.xl),
-              const AchievementStrip(),
+              AppEntrance(
+                child: WeeklyProgressSection(days: dashboard.weeklyProgress),
+              ),
               const SizedBox(height: AppSpacing.xl),
-              const AppSectionHeader(title: 'Last movement'),
-              const SizedBox(height: AppSpacing.md),
-              const RecentRun(),
+              AppEntrance(
+                child: TrainingPlanPreviewSection(plan: dashboard.trainingPlan),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              AppEntrance(
+                child: ChallengesPreviewSection(
+                  challenges: dashboard.challenges,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              AppEntrance(
+                child: RecentActivitySection(
+                  activities: dashboard.recentActivities,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxxl),
             ],
           ),
         ),

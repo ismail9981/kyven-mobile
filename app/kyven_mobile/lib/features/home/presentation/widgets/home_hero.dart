@@ -3,219 +3,242 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_layout.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../domain/entities/home_dashboard.dart';
 
-class HomeHeader extends StatelessWidget {
-  const HomeHeader({super.key});
+class GreetingHero extends StatelessWidget {
+  const GreetingHero({required this.dashboard, super.key});
+
+  final HomeDashboard dashboard;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppTag(
-                label: 'Monday · Muscat',
-                color: AppPalette.electricBright,
-                icon: Icons.wb_sunny_outlined,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text('Morning, Alex.', style: theme.textTheme.headlineLarge),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'The road is yours.',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppPalette.smoke,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          width: AppLayout.avatarSmall,
-          height: AppLayout.avatarSmall,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            gradient: AppKyvenSignature.velocityGradient,
-            shape: BoxShape.circle,
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              const AppKyvenMark(color: AppPalette.white, size: 20),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Container(
-                  width: AppSpacing.sm,
-                  height: AppSpacing.sm,
-                  decoration: const BoxDecoration(
-                    color: AppPalette.electricBright,
-                    shape: BoxShape.circle,
+    final colors = context.appColors;
+
+    return Semantics(
+      header: true,
+      label:
+          '${dashboard.greeting} ${dashboard.runnerName}. ${dashboard.motivation}',
+      child: ExcludeSemantics(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dashboard.greeting,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.secondaryText,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Morning, ${dashboard.runnerName}.',
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      height: 0.98,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    dashboard.motivation,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colors.secondaryText,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Container(
+              width: AppLayout.avatarSmall,
+              height: AppLayout.avatarSmall,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.elevatedSurface,
+                shape: BoxShape.circle,
+                border: Border.all(color: colors.glassBorder),
+              ),
+              child: const AppKyvenMark(
+                color: AppPalette.electricBright,
+                size: 22,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
 
-class WeeklyHero extends StatelessWidget {
-  const WeeklyHero({required this.onStart, super.key});
+class StartRunHeroCard extends StatelessWidget {
+  const StartRunHeroCard({
+    required this.dashboard,
+    required this.onStartRun,
+    super.key,
+  });
 
-  final VoidCallback onStart;
+  final HomeDashboard dashboard;
+  final VoidCallback onStartRun;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AppCard(
-      showShadow: true,
-      glowColor: AppPalette.electricBright,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AppPalette.electricCore,
-          AppPalette.electricDeep,
-          AppPalette.violetDeep,
-        ],
-      ),
-      borderColor: AppPalette.electricBright,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < AppLayout.compactBreakpoint;
-          final ring = AppProgressRing(
-            progress: 0.74,
-            size: AppLayout.heroRing,
-            strokeWidth: AppSpacing.md,
-            trackColor: AppPalette.white.withValues(alpha: 0.16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    final progress = dashboard.weeklyProgressRatio.clamp(0, 1).toDouble();
+
+    return Semantics(
+      container: true,
+      label:
+          'Start Run. ${dashboard.weeklyDistance} kilometers this week. '
+          '${dashboard.currentStreak} day streak. ${dashboard.weather}.',
+      child: AppCard(
+        key: const ValueKey('home-start-run-card'),
+        showShadow: true,
+        glowColor: AppPalette.electricBright,
+        borderColor: AppPalette.electricBright.withValues(alpha: 0.6),
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppPalette.electricCore,
+            AppPalette.electricDeep,
+            AppPalette.violetDeep,
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < AppLayout.compactBreakpoint;
+            final ring = AppProgressRing(
+              progress: progress,
+              size: compact ? 164 : AppLayout.heroRing,
+              strokeWidth: AppSpacing.md,
+              trackColor: AppPalette.white.withValues(alpha: 0.16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dashboard.weeklyDistance.toStringAsFixed(1),
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      color: AppPalette.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'KM WEEK',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppPalette.cloud,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            );
+            final content = Column(
+              crossAxisAlignment: compact
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               children: [
                 Text(
-                  '18.4',
-                  style: theme.textTheme.headlineLarge?.copyWith(
+                  'Start Run',
+                  textAlign: compact ? TextAlign.center : TextAlign.start,
+                  style: theme.textTheme.displaySmall?.copyWith(
                     color: AppPalette.white,
+                    height: 0.98,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+                const SizedBox(height: AppSpacing.md),
                 Text(
-                  'KM THIS WEEK',
-                  style: theme.textTheme.labelSmall?.copyWith(
+                  'A clean launch into today’s movement.',
+                  textAlign: compact ? TextAlign.center : TextAlign.start,
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppPalette.cloud,
-                    letterSpacing: 1.2,
                   ),
                 ),
-              ],
-            ),
-          );
-          final copy = Column(
-            crossAxisAlignment: compact
-                ? CrossAxisAlignment.center
-                : CrossAxisAlignment.start,
-            children: [
-              Text(
-                '74% of your weekly goal',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: AppPalette.lime,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Keep the\nmomentum.',
-                textAlign: compact ? TextAlign.center : TextAlign.start,
-                style: theme.textTheme.headlineLarge?.copyWith(
-                  color: AppPalette.white,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AppButton(
-                label: 'Start a run',
-                icon: Icons.arrow_forward_rounded,
-                onPressed: onStart,
-              ),
-            ],
-          );
-          if (compact) {
-            return Column(
-              children: [
-                ring,
                 const SizedBox(height: AppSpacing.xl),
-                copy,
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    _HeroPill(
+                      icon: Icons.local_fire_department_rounded,
+                      label: '${dashboard.currentStreak} day streak',
+                    ),
+                    _HeroPill(
+                      icon: Icons.wb_sunny_outlined,
+                      label: dashboard.weather,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                AppButton(
+                  key: const ValueKey('home-start-run-button'),
+                  label: 'Start Run',
+                  onPressed: onStartRun,
+                  icon: Icons.play_arrow_rounded,
+                ),
               ],
             );
-          }
-          return Row(
-            children: [
-              ring,
-              const SizedBox(width: AppSpacing.xl),
-              Expanded(child: copy),
-            ],
-          );
-        },
+
+            if (compact) {
+              return Column(
+                children: [
+                  ring,
+                  const SizedBox(height: AppSpacing.xl),
+                  content,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                ring,
+                const SizedBox(width: AppSpacing.xl),
+                Expanded(child: content),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-class AnimatedStats extends StatelessWidget {
-  const AnimatedStats({super.key});
+class _HeroPill extends StatelessWidget {
+  const _HeroPill({required this.icon, required this.label});
 
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(
-          child: _Stat(value: 3, suffix: '', label: 'Runs'),
-        ),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _Stat(value: 102, suffix: 'm', label: 'Active'),
-        ),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _Stat(value: 6, suffix: 'd', label: 'Streak'),
-        ),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.suffix, required this.label});
-
+  final IconData icon;
   final String label;
-  final String suffix;
-  final int value;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.lg,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppPalette.white.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(AppSpacing.xl),
+        border: Border.all(color: AppPalette.white.withValues(alpha: 0.16)),
       ),
-      child: TweenAnimationBuilder<int>(
-        tween: IntTween(begin: 0, end: value),
-        duration: const Duration(milliseconds: 700),
-        builder: (context, value, child) => Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text('$value$suffix', style: theme.textTheme.headlineSmall),
-            const SizedBox(height: AppSpacing.xs),
+            Icon(icon, color: AppPalette.cloud, size: 18),
+            const SizedBox(width: AppSpacing.xs),
             Text(
-              label.toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppPalette.smoke,
-                letterSpacing: 0.8,
-              ),
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: AppPalette.cloud),
             ),
           ],
         ),
