@@ -1,0 +1,52 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kyven_mobile/app/app.dart';
+import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
+
+void main() {
+  testWidgets('application launches into the home destination', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pump();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Morning, Alex.'), findsOneWidget);
+    expect(
+      Theme.of(tester.element(find.byType(HomeScreen))).useMaterial3,
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact layout supports enlarged text without overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pump();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    for (final destination in [
+      'Training',
+      'Start Run',
+      'Challenges',
+      'Profile',
+    ]) {
+      await tester.tap(find.byKey(ValueKey('navigation-$destination')));
+      await tester.pump();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '$destination should support compact enlarged-text layouts',
+      );
+    }
+  });
+}
