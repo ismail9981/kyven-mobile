@@ -24,7 +24,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       SplashRoute.route,
       OnboardingRoute.route,
-      AuthenticationRoute.route,
+      ...AuthenticationRoute.routes,
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
