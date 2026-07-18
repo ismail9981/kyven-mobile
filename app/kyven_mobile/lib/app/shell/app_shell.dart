@@ -268,15 +268,20 @@ class _NavItem extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: color,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: color,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxs),
