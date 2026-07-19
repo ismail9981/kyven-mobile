@@ -42,7 +42,11 @@ void main() {
       await tester.pump();
       await tester.pump(AppDurations.slow);
       expect(find.byType(entry.value), findsOneWidget);
-      expect(find.byKey(const ValueKey('navigation-Home')), findsOneWidget);
+      if (entry.key == AppRoute.run) {
+        expect(find.byKey(const ValueKey('navigation-Home')), findsNothing);
+      } else {
+        expect(find.byKey(const ValueKey('navigation-Home')), findsOneWidget);
+      }
       context = tester.element(find.byType(entry.value));
     }
   });

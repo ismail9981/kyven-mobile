@@ -10,6 +10,7 @@ import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_radii.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/widgets/widgets.dart';
+import '../router/app_route.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({required this.navigationShell, super.key});
@@ -69,15 +70,23 @@ class _AppShellState extends State<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    final hideNavigation =
+        path == AppRoute.run.path ||
+        path == AppRoute.runLive.path ||
+        path == AppRoute.runSummary.path;
+
     return Scaffold(
       body: FadeTransition(
         opacity: _opacity,
         child: ScaleTransition(scale: _scale, child: widget.navigationShell),
       ),
-      bottomNavigationBar: _FloatingNavigation(
-        currentIndex: widget.navigationShell.currentIndex,
-        onSelected: _select,
-      ),
+      bottomNavigationBar: hideNavigation
+          ? null
+          : _FloatingNavigation(
+              currentIndex: widget.navigationShell.currentIndex,
+              onSelected: _select,
+            ),
     );
   }
 }

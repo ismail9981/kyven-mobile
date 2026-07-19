@@ -13,10 +13,12 @@ class AppProgressRing extends StatelessWidget {
     required this.child,
     this.strokeWidth = AppSpacing.sm,
     this.trackColor,
+    this.glowOpacity = 1,
     super.key,
   });
 
   final Widget child;
+  final double glowOpacity;
   final double progress;
   final double size;
   final double strokeWidth;
@@ -32,6 +34,7 @@ class AppProgressRing extends StatelessWidget {
       builder: (context, value, child) => CustomPaint(
         painter: _RingPainter(
           progress: value,
+          glowOpacity: glowOpacity,
           trackColor: trackColor ?? scheme.outlineVariant,
           strokeWidth: strokeWidth,
           brightness: Theme.of(context).brightness,
@@ -48,12 +51,14 @@ class AppProgressRing extends StatelessWidget {
 class _RingPainter extends CustomPainter {
   const _RingPainter({
     required this.progress,
+    required this.glowOpacity,
     required this.trackColor,
     required this.strokeWidth,
     required this.brightness,
   });
 
   final Brightness brightness;
+  final double glowOpacity;
   final double progress;
   final double strokeWidth;
   final Color trackColor;
@@ -86,12 +91,12 @@ class _RingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = strokeWidth * 0.42;
     final glow = Paint()
-      ..shader = const SweepGradient(
+      ..shader = SweepGradient(
         colors: [
-          AppPalette.electric,
-          AppPalette.violet,
-          AppPalette.lime,
-          AppPalette.electric,
+          AppPalette.electric.withValues(alpha: glowOpacity),
+          AppPalette.violet.withValues(alpha: glowOpacity),
+          AppPalette.lime.withValues(alpha: glowOpacity),
+          AppPalette.electric.withValues(alpha: glowOpacity),
         ],
       ).createShader(rect)
       ..style = PaintingStyle.stroke
@@ -143,6 +148,7 @@ class _RingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) =>
       oldDelegate.progress != progress ||
+      oldDelegate.glowOpacity != glowOpacity ||
       oldDelegate.trackColor != trackColor ||
       oldDelegate.brightness != brightness;
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kyven_mobile/app/app.dart';
+import 'package:kyven_mobile/app/router/app_route.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 
 void main() {
@@ -47,6 +49,13 @@ void main() {
         isNull,
         reason: '$destination should support compact enlarged-text layouts',
       );
+      if (destination == 'Start Run') {
+        final context = tester.element(
+          find.byType(HomeScreen, skipOffstage: false),
+        );
+        context.goNamed(AppRoute.home.name);
+        await tester.pump();
+      }
     }
   });
 }

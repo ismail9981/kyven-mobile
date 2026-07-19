@@ -1,273 +1,178 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_route.dart';
 import '../../../../core/theme/app_durations.dart';
 import '../../../../core/theme/app_layout.dart';
 import '../../../../core/theme/app_palette.dart';
-import '../../../../core/theme/app_radii.dart';
-import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../application/run_session_providers.dart';
 
-class StartRunScreen extends StatefulWidget {
+class StartRunScreen extends ConsumerStatefulWidget {
   const StartRunScreen({super.key});
 
   @override
-  State<StartRunScreen> createState() => _StartRunScreenState();
+  ConsumerState<StartRunScreen> createState() => _StartRunScreenState();
 }
 
-class _StartRunScreenState extends State<StartRunScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
+class _StartRunScreenState extends ConsumerState<StartRunScreen> {
+  static const _countdownValues = ['3', '2', '1', 'Go'];
+  Timer? _countdownTimer;
+  var _countdownIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: AppDurations.slow);
-    unawaited(_pulse.repeat(reverse: true));
+    _countdownTimer = Timer.periodic(const Duration(milliseconds: 650), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_countdownIndex < _countdownValues.length - 1) {
+          _countdownIndex += 1;
+        }
+      });
+      if (_countdownIndex == _countdownValues.length - 1) {
+        _countdownTimer?.cancel();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
-  void _previewAction(String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action is visual-only in this preview.')),
-    );
+  void _beginSession(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(runSessionProvider.notifier);
+    notifier.prepare();
+    notifier.start();
+    context.goNamed(AppRoute.runLive.name);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final countdownValue = _countdownValues[_countdownIndex];
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
     return AppScaffold(
       padding: EdgeInsets.zero,
-      body: SingleChildScrollView(
-        key: const PageStorageKey('start-run-scroll'),
-        child: AppResponsiveContent(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.sm,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AppKyvenVelocityField(intensity: 0.34)),
+          SingleChildScrollView(
+            key: const PageStorageKey('start-run-preparation-scroll'),
+            child: AppResponsiveContent(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const AppTag(
-                    label: 'GPS locked · Preview',
+                    label: 'GPS LOCKED · PREVIEW',
                     color: AppPalette.lime,
                     icon: Icons.gps_fixed_rounded,
                   ),
-                  AppIconButton(
-                    onPressed: () => _previewAction('Run settings'),
-                    semanticLabel: 'Run settings',
-                    icon: Icons.tune_rounded,
+                  const SizedBox(height: AppSpacing.xxxl),
+                  Text(
+                    'Ready',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.displayLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Text(
-                'RUN//LIVE',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: AppPalette.smoke,
-                  letterSpacing: 2.4,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = constraints.maxWidth < AppLayout.runRing
-                      ? constraints.maxWidth
-                      : AppLayout.runRing;
-                  return Center(
-                    child: AnimatedBuilder(
-                      animation: _pulse,
-                      builder: (context, child) => Transform.scale(
-                        scale: 0.99 + (_pulse.value * 0.01),
-                        child: child,
-                      ),
-                      child: AppProgressRing(
-                        progress: 0.78,
-                        size: size,
-                        strokeWidth: AppSpacing.md,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '5:24',
-                              style: theme.textTheme.displayLarge?.copyWith(
-                                color: AppPalette.white,
-                                fontSize: 72,
-                              ),
-                            ),
-                            Text(
-                              'CURRENT PACE /KM',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppPalette.smoke,
-                                letterSpacing: 1.4,
-                              ),
-                            ),
-                          ],
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'A focused run session starts when you are ready.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: AppPalette.smoke,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxxl),
+                  Semantics(
+                    liveRegion: true,
+                    label: 'Countdown $countdownValue',
+                    child: ExcludeSemantics(
+                      child: Center(
+                        child: AnimatedSwitcher(
+                          duration: reduceMotion
+                              ? AppDurations.instant
+                              : AppDurations.normal,
+                          layoutBuilder: (currentChild, previousChildren) {
+                            return currentChild ?? const SizedBox.shrink();
+                          },
+                          child: _CountdownStep(
+                            key: ValueKey('run-countdown-$countdownValue'),
+                            value: countdownValue,
+                          ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              const _RunMetrics(),
-              const SizedBox(height: AppSpacing.xl),
-              AppCard(
-                gradient: const LinearGradient(
-                  colors: [AppPalette.graphite, AppPalette.charcoal],
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.favorite_rounded,
-                      color: context.appColors.danger,
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('142 BPM', style: theme.textTheme.titleLarge),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            'STEADY · AEROBIC ZONE',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppPalette.smoke,
-                              letterSpacing: 1,
-                            ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  AppProgressRing(
+                    progress: (0.2 + (_countdownIndex * 0.24)).clamp(0, 1),
+                    size: AppLayout.runRing * 0.84,
+                    strokeWidth: AppSpacing.md,
+                    glowOpacity: 0.72,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.play_arrow_rounded,
+                          color: AppPalette.white,
+                          size: 72,
+                        ),
+                        Text(
+                          'RUN SESSION',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppPalette.smoke,
+                            letterSpacing: 1.4,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    AppProgressRing(
-                      progress: 0.64,
-                      size: AppLayout.badgeSize,
-                      strokeWidth: AppSpacing.xs,
-                      child: Text('Z3', style: theme.textTheme.labelLarge),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: AppSpacing.lg,
-                runSpacing: AppSpacing.lg,
-                children: [
-                  _RunControl(
-                    label: 'Finish',
-                    icon: Icons.stop_rounded,
-                    color: context.appColors.danger,
-                    onTap: () => _previewAction('Finish run'),
                   ),
-                  _RunControl(
-                    label: 'Pause',
-                    icon: Icons.pause_rounded,
-                    color: context.appColors.accent,
-                    primary: true,
-                    onTap: () => _previewAction('Pause run'),
+                  const SizedBox(height: AppSpacing.xxxl),
+                  AppButton(
+                    key: const ValueKey('run-begin-session-button'),
+                    label: 'Begin Session',
+                    onPressed: () => _beginSession(context, ref),
+                    icon: Icons.arrow_forward_rounded,
                   ),
-                  _RunControl(
-                    label: 'Lock',
-                    icon: Icons.lock_outline_rounded,
-                    color: AppPalette.electricBright,
-                    onTap: () => _previewAction('Screen lock'),
-                  ),
+                  const SizedBox(height: AppSpacing.xxxl),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _RunMetrics extends StatelessWidget {
-  const _RunMetrics();
+class _CountdownStep extends StatelessWidget {
+  const _CountdownStep({required this.value, super.key});
+
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(
-          child: AppMetric(value: '6.82', label: 'Kilometers'),
-        ),
-        Expanded(
-          child: AppMetric(value: '36:51', label: 'Time'),
-        ),
-        Expanded(
-          child: AppMetric(value: '486', label: 'Calories'),
-        ),
-      ],
-    );
-  }
-}
-
-class _RunControl extends StatelessWidget {
-  const _RunControl({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.primary = false,
-  });
-
-  final Color color;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final size = primary
-        ? AppLayout.avatarLarge
-        : AppLayout.navigationCenterAction;
-    return Semantics(
-      button: true,
-      label: label,
-      child: Column(
-        children: [
-          AppPressedScale(
-            onTap: onTap,
-            borderRadius: const BorderRadius.all(
-              Radius.circular(AppRadii.full),
-            ),
-            child: Container(
-              width: size,
-              height: size,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary ? color : color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.5)),
-                boxShadow: primary
-                    ? AppShadows.glow(color, opacity: 0.28)
-                    : AppShadows.low(Theme.of(context).brightness),
-              ),
-              child: Icon(
-                icon,
-                color: primary ? AppPalette.ink : color,
-                size: primary ? AppLayout.iconContainer : null,
-              ),
-            ),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: SizedBox.square(
+        dimension: 76,
+        child: Center(
+          child: Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(label, style: theme.textTheme.labelMedium),
-        ],
+        ),
       ),
     );
   }
