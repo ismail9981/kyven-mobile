@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kyven_mobile/app/app.dart';
 import 'package:kyven_mobile/core/theme/app_durations.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/live_run_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_summary_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/start_run_screen.dart';
+
+import '../helpers/test_app.dart';
 
 void main() {
   Future<void> pumpApp(WidgetTester tester) async {
@@ -15,7 +15,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump();
     await tester.pump(AppDurations.slow);
   }

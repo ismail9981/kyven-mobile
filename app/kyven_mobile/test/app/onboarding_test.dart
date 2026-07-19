@@ -1,17 +1,17 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:kyven_mobile/app/app.dart';
 import 'package:kyven_mobile/app/router/app_route.dart';
 import 'package:kyven_mobile/core/theme/app_durations.dart';
 import 'package:kyven_mobile/features/authentication/presentation/screens/authentication_screen.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:kyven_mobile/features/onboarding/presentation/screens/onboarding_screen.dart';
 
+import '../helpers/test_app.dart';
+
 void main() {
   Future<void> pumpOnboarding(WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump();
 
     final context = tester.element(find.byType(HomeScreen));

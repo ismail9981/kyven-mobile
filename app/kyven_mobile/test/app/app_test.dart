@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:kyven_mobile/app/app.dart';
 import 'package:kyven_mobile/app/router/app_route.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 
+import '../helpers/test_app.dart';
+
 void main() {
   testWidgets('application launches into the home destination', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump();
 
     expect(find.byType(HomeScreen), findsOneWidget);
@@ -30,7 +30,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-    await tester.pumpWidget(const ProviderScope(child: KyvenApp()));
+    await tester.pumpWidget(testApp());
     await tester.pump();
 
     expect(find.byType(HomeScreen), findsOneWidget);

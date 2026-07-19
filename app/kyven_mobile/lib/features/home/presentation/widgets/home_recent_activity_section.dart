@@ -1,81 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_theme_colors.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../../../shared/widgets/widgets.dart';
-import '../../domain/entities/home_dashboard.dart';
+import '../../../run_tracking/domain/entities/saved_run.dart';
+import '../../../run_tracking/presentation/widgets/saved_run_card.dart';
 import 'home_section_shell.dart';
 
 class RecentActivitySection extends StatelessWidget {
-  const RecentActivitySection({required this.activities, super.key});
+  const RecentActivitySection({
+    required this.latestRun,
+    required this.onStartRun,
+    required this.onOpenHistory,
+    required this.onOpenRun,
+    super.key,
+  });
 
-  final List<RecentActivity> activities;
+  final AsyncValue<SavedRun?> latestRun;
+  final VoidCallback onOpenHistory;
+  final ValueChanged<String> onOpenRun;
+  final VoidCallback onStartRun;
 
   @override
   Widget build(BuildContext context) {
     return HomeDashboardSection(
       title: 'Recent Activity',
-      subtitle: 'Previous runs, kept simple',
-      child: Column(
-        key: const ValueKey('home-recent-activity-list'),
-        children: [
-          for (var index = 0; index < activities.length; index++) ...[
-            _RecentActivityCard(activity: activities[index]),
-            if (index != activities.length - 1)
-              const SizedBox(height: AppSpacing.md),
-          ],
-        ],
-      ),
-    );
-  }
-}
+      subtitle: 'Saved locally on this device',
+      actionLabel: 'History',
+      onAction: onOpenHistory,
+      child: latestRun.when(
+        data: (run) {
+          if (run == null) {
+            return AppCard(
+              key: const ValueKey('home-recent-empty-state'),
+              child: AppEmptyState(
+                title: 'No runs saved yet',
+                message:
+                    'Finish a run to begin shaping your personal Motion Path.',
+                icon: Icons.route_rounded,
+                iconColor: AppPalette.electricBright,
+                actionLabel: 'Start Your First Run',
+                onAction: onStartRun,
+              ),
+            );
+          }
 
-class _RecentActivityCard extends StatelessWidget {
-  const _RecentActivityCard({required this.activity});
-
-  final RecentActivity activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.appColors;
-
-    return AppCard(
-      variant: AppCardVariant.elevated,
-      semanticLabel:
-          '${activity.title}, ${activity.distance}, ${activity.duration}, '
-          '${activity.pace}, ${activity.date}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(activity.title, style: theme.textTheme.titleLarge),
-              ),
-              Text(
-                activity.date,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.secondaryText,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: AppMetric(value: activity.distance, label: 'Distance'),
-              ),
-              Expanded(
-                child: AppMetric(value: activity.duration, label: 'Duration'),
-              ),
-              Expanded(
-                child: AppMetric(value: activity.pace, label: 'Pace'),
-              ),
-            ],
-          ),
-        ],
+          return Column(
+            key: const ValueKey('home-recent-activity-list'),
+            children: [SavedRunCard(run: run, onTap: () => onOpenRun(run.id))],
+          );
+        },
+        loading: () => const AppLoadingIndicator(label: 'Loading latest run'),
+        error: (_, _) => const AppStatusBanner(
+          status: AppStatus.error,
+          title: 'Latest run unavailable',
+          message: 'KYVEN could not load your saved activity.',
+        ),
       ),
     );
   }

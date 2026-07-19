@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,20 +9,108 @@ import '../../../../core/theme/app_layout.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../application/run_history_providers.dart';
 import '../../application/run_session_providers.dart';
+import '../../application/run_session_state.dart';
+import '../../domain/entities/saved_run.dart';
 import '../widgets/run_metric_formatters.dart';
 
-class RunSummaryScreen extends ConsumerWidget {
+class RunSummaryScreen extends ConsumerStatefulWidget {
   const RunSummaryScreen({super.key});
+
+  @override
+  ConsumerState<RunSummaryScreen> createState() => _RunSummaryScreenState();
+}
+
+class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
+  String? _savedRunId;
+  String? _saveAttemptedRunId;
+  Object? _saveError;
+  var _isSaving = false;
 
   void _done(BuildContext context, WidgetRef ref) {
     ref.read(runSessionProvider.notifier).reset();
     context.goNamed(AppRoute.home.name);
   }
 
+  void _saveIfNeeded(RunSessionState state) {
+    final summary = state.summary;
+    final runId = state.session?.id;
+    if (summary == null ||
+        runId == null ||
+        _savedRunId == runId ||
+        _saveAttemptedRunId == runId ||
+        _isSaving) {
+      return;
+    }
+
+    _saveAttemptedRunId = runId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_saveRun(_savedRunFromState(state)));
+      }
+    });
+  }
+
+  void _retrySave(RunSessionState state) {
+    _saveAttemptedRunId = null;
+    _saveIfNeeded(state);
+  }
+
+  Future<void> _saveRun(SavedRun run) async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await ref.read(runHistoryRepositoryProvider).saveRun(run);
+      if (mounted) {
+        setState(() => _savedRunId = run.id);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saveError = error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  SavedRun _savedRunFromState(RunSessionState state) {
+    final summary = state.summary;
+    final metrics = summary?.metrics ?? state.metrics;
+    final completedAt = summary?.completedAt ?? DateTime.now();
+    final startedAt =
+        state.session?.startedAt ?? completedAt.subtract(metrics.elapsed);
+
+    return SavedRun(
+      id:
+          state.session?.id ??
+          'local-run-${completedAt.microsecondsSinceEpoch}',
+      startedAt: startedAt,
+      completedAt: completedAt,
+      duration: metrics.elapsed,
+      distanceKm: metrics.distanceKm,
+      averagePace: metrics.averagePace,
+      calories: metrics.calories,
+      cadence: metrics.cadence,
+      averageHeartRate: metrics.heartRate,
+      routePreview: '',
+      achievement: summary?.achievement ?? '',
+    );
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summary = ref.watch(runSessionProvider).summary;
+  Widget build(BuildContext context) {
+    final runState = ref.watch(runSessionProvider);
+    final summary = runState.summary;
     final theme = Theme.of(context);
 
     if (summary == null) {
@@ -45,6 +135,8 @@ class RunSummaryScreen extends ConsumerWidget {
         ),
       );
     }
+
+    _saveIfNeeded(runState);
 
     final metrics = summary.metrics;
     return AppScaffold(
@@ -155,10 +247,35 @@ class RunSummaryScreen extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: AppSpacing.xl),
+              if (_saveError != null) ...[
+                AppStatusBanner(
+                  status: AppStatus.error,
+                  title: 'Run not saved',
+                  message:
+                      'KYVEN could not save this run locally. Keep this screen open and try again.',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: 'Retry Save',
+                  onPressed: _isSaving ? null : () => _retrySave(runState),
+                  variant: AppButtonVariant.secondary,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
+              if (_isSaving && _saveError == null) ...[
+                const AppStatusBanner(
+                  status: AppStatus.info,
+                  title: 'Saving run',
+                  message: 'Your completed run is being saved on this device.',
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
               AppButton(
                 key: const ValueKey('run-summary-done-button'),
                 label: 'Done',
-                onPressed: () => _done(context, ref),
+                onPressed: !_isSaving && _saveError == null
+                    ? () => _done(context, ref)
+                    : null,
                 icon: Icons.check_rounded,
               ),
               const SizedBox(height: AppSpacing.md),

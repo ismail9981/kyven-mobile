@@ -8,10 +8,14 @@ class HomeDashboardSection extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.actionLabel,
+    this.onAction,
     super.key,
   });
 
+  final String? actionLabel;
   final Widget child;
+  final VoidCallback? onAction;
   final String subtitle;
   final String title;
 
@@ -23,7 +27,13 @@ class HomeDashboardSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppSectionHeader(title: title, subtitle: subtitle),
+          AppSectionHeader(
+            title: title,
+            subtitle: subtitle,
+            action: actionLabel == null || onAction == null
+                ? null
+                : TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ),
           const SizedBox(height: AppSpacing.md),
           child,
         ],

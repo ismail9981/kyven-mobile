@@ -10,6 +10,7 @@ import '../../features/home/presentation/routes/home_route.dart';
 import '../../features/notifications/presentation/routes/notifications_route.dart';
 import '../../features/onboarding/presentation/routes/onboarding_route.dart';
 import '../../features/profile/presentation/routes/profile_route.dart';
+import '../../features/run_tracking/presentation/routes/run_history_route.dart';
 import '../../features/run_tracking/presentation/routes/start_run_route.dart';
 import '../../features/settings/presentation/routes/settings_route.dart';
 import '../../features/splash/presentation/routes/splash_route.dart';
@@ -37,6 +38,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       ActivitiesRoute.route,
+      RunHistoryRoute.route,
       NotificationsRoute.route,
       SettingsRoute.route,
       if (kDebugMode) DesignSystemRoute.route,

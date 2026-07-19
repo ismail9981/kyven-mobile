@@ -11,6 +11,8 @@ enum AppRoute {
   run(name: 'run', path: '/run'),
   runLive(name: 'run-live', path: '/run/live'),
   runSummary(name: 'run-summary', path: '/run/summary'),
+  runHistory(name: 'run-history', path: '/history'),
+  runDetail(name: 'run-detail', path: '/history/:runId'),
   challenges(name: 'challenges', path: '/challenges'),
   profile(name: 'profile', path: '/profile'),
   activities(name: 'activities', path: '/activities'),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_route.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../../run_tracking/application/run_history_providers.dart';
 import '../../application/home_dashboard_providers.dart';
 import '../widgets/home_hero.dart';
 import '../widgets/home_sections.dart';
@@ -15,6 +16,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(homeDashboardProvider);
+    final latestRun = ref.watch(latestSavedRunProvider);
 
     return AppScaffold(
       padding: EdgeInsets.zero,
@@ -53,7 +55,14 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               AppEntrance(
                 child: RecentActivitySection(
-                  activities: dashboard.recentActivities,
+                  latestRun: latestRun,
+                  onStartRun: () => context.goNamed(AppRoute.run.name),
+                  onOpenHistory: () =>
+                      context.goNamed(AppRoute.runHistory.name),
+                  onOpenRun: (runId) => context.goNamed(
+                    AppRoute.runDetail.name,
+                    pathParameters: {'runId': runId},
+                  ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xxxl),
