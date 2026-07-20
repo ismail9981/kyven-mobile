@@ -6,8 +6,8 @@ extension SavedRunFormatting on SavedRun {
 
   String get timeLabel => _timeLabel(completedAt);
 
-  String get accessibilityLabel =>
-      'Run on $dateLabel at $timeLabel. '
+  String accessibilityLabel({String title = 'Run'}) =>
+      '$title on $dateLabel at $timeLabel. '
       '${kilometersLabel(distanceKm)}, ${duration.timeLabel}, '
       '${averagePace.paceLabel} average pace, $calories calories.';
 }

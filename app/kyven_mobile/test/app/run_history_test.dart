@@ -8,6 +8,7 @@ import 'package:kyven_mobile/features/profile/presentation/screens/profile_scree
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_detail_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_history_screen.dart';
 
+import '../fakes/fake_run_history_repository.dart';
 import '../helpers/test_app.dart';
 
 void main() {
@@ -155,5 +156,38 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('2'), findsWidgets);
     expect(find.text('11.6 km'), findsWidgets);
+  });
+
+  testWidgets('home reacts when runs are saved and deleted', (tester) async {
+    final repository = FakeRunHistoryRepository();
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(testApp(repository: repository));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('home-recent-empty-state')),
+    );
+    await tester.pump(AppDurations.slow);
+    expect(find.text('No runs recorded yet'), findsOneWidget);
+
+    await repository.saveRun(savedRunFixture(id: 'reactive-run'));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    expect(
+      find.byKey(const ValueKey('saved-run-card-reactive-run')),
+      findsOneWidget,
+    );
+
+    await repository.deleteRun('reactive-run');
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    expect(
+      find.byKey(const ValueKey('home-recent-empty-state')),
+      findsOneWidget,
+    );
   });
 }

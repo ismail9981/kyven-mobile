@@ -8,15 +8,16 @@ import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../../run_tracking/application/run_history_providers.dart';
-import '../../../run_tracking/domain/entities/run_statistics.dart';
+import '../../../run_tracking/domain/entities/motion_insights.dart';
 import '../../../run_tracking/presentation/widgets/run_metric_formatters.dart';
+import '../../../run_tracking/presentation/widgets/saved_run_formatters.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statistics = ref.watch(runStatisticsProvider);
+    final insights = ref.watch(motionInsightsProvider);
 
     return AppScaffold(
       padding: EdgeInsets.zero,
@@ -26,18 +27,18 @@ class ProfileScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _AthleteHeader(),
+              _AthleteHeader(insights: insights),
               const SizedBox(height: AppSpacing.xl),
-              _FormHero(statistics: statistics),
+              _FormHero(insights: insights),
               const SizedBox(height: AppSpacing.xl),
-              _LifetimeStats(statistics: statistics),
+              _LifetimeStats(insights: insights),
               const SizedBox(height: AppSpacing.xl),
               const AppSectionHeader(
                 title: 'Personal records',
                 subtitle: 'The numbers that define your edge',
               ),
               const SizedBox(height: AppSpacing.md),
-              _RecordGrid(statistics: statistics),
+              _RecordGrid(insights: insights),
               const SizedBox(height: AppSpacing.xl),
               const AppSectionHeader(
                 title: 'Earned, never given',
@@ -56,11 +57,15 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _AthleteHeader extends StatelessWidget {
-  const _AthleteHeader();
+  const _AthleteHeader({required this.insights});
+
+  final AsyncValue<MotionInsights> insights;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final stats = insights.asData?.value;
+    final totalRuns = stats?.totalRuns ?? 0;
     return Row(
       children: [
         Container(
@@ -95,14 +100,18 @@ class _AthleteHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppTag(
-                label: 'Athlete · Level 12',
+              AppTag(
+                label: totalRuns == 0
+                    ? 'KYVEN Runner'
+                    : '$totalRuns runs saved locally',
                 color: AppPalette.electricBright,
               ),
               const SizedBox(height: AppSpacing.sm),
-              Text('Alex Morgan', style: theme.textTheme.headlineMedium),
+              Text('Local Athlete', style: theme.textTheme.headlineMedium),
               Text(
-                'Muscat · Running since 2021',
+                stats == null || !stats.hasRuns
+                    ? 'Your Motion Path starts with the first run'
+                    : '${kilometersLabel(stats.totalDistanceKm)} recorded on this device',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppPalette.smoke,
                 ),
@@ -121,19 +130,18 @@ class _AthleteHeader extends StatelessWidget {
 }
 
 class _FormHero extends StatelessWidget {
-  const _FormHero({required this.statistics});
+  const _FormHero({required this.insights});
 
-  final AsyncValue<RunStatistics> statistics;
+  final AsyncValue<MotionInsights> insights;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stats = statistics.asData?.value;
+    final stats = insights.asData?.value;
     final hasRuns = stats?.hasRuns ?? false;
     final distanceLabel = hasRuns
-        ? '${stats!.totalDistanceKm.toStringAsFixed(1)} km'
+        ? kilometersLabel(stats!.totalDistanceKm)
         : '0.0 km';
-    final streak = stats?.currentStreakDays;
 
     return AppCard(
       showShadow: true,
@@ -178,9 +186,9 @@ class _FormHero extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 AppTag(
-                  label: streak == null
+                  label: (stats?.currentStreakDays ?? 0) == 0
                       ? '${stats?.totalRuns ?? 0} runs saved'
-                      : '$streak day streak',
+                      : '${stats!.currentStreakDays} day streak',
                   color: AppPalette.electricBright,
                   icon: Icons.local_fire_department_rounded,
                 ),
@@ -194,19 +202,19 @@ class _FormHero extends StatelessWidget {
 }
 
 class _LifetimeStats extends StatelessWidget {
-  const _LifetimeStats({required this.statistics});
+  const _LifetimeStats({required this.insights});
 
-  final AsyncValue<RunStatistics> statistics;
+  final AsyncValue<MotionInsights> insights;
 
   @override
   Widget build(BuildContext context) {
-    return statistics.when(
+    return insights.when(
       data: (stats) {
         if (!stats.hasRuns) {
           return const AppCard(
             child: AppEmptyState(
-              title: 'No local totals yet',
-              message: 'Complete a run to build your KYVEN profile.',
+              title: 'No runs recorded yet',
+              message: 'Start your first movement.',
               icon: Icons.insights_rounded,
             ),
           );
@@ -217,22 +225,43 @@ class _LifetimeStats extends StatelessWidget {
               '${stats.totalRuns} total runs, '
               '${stats.totalDistanceKm.toStringAsFixed(1)} kilometers, '
               '${stats.totalDuration.timeLabel} total duration.',
-          child: Row(
+          child: GridView.count(
+            key: const ValueKey('profile-insights-grid'),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.75,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
             children: [
-              Expanded(
-                child: AppMetric(value: '${stats.totalRuns}', label: 'Runs'),
+              AppMetric(value: '${stats.totalRuns}', label: 'Total Runs'),
+              AppMetric(
+                value: kilometersLabel(stats.totalDistanceKm),
+                label: 'Total Distance',
               ),
-              Expanded(
-                child: AppMetric(
-                  value: '${stats.totalDistanceKm.toStringAsFixed(1)} km',
-                  label: 'Distance',
-                ),
+              AppMetric(
+                value: kilometersLabel(stats.weeklyDistanceKm),
+                label: 'Weekly Distance',
               ),
-              Expanded(
-                child: AppMetric(
-                  value: stats.totalDuration.timeLabel,
-                  label: 'Duration',
-                ),
+              AppMetric(
+                value: kilometersLabel(stats.monthlyDistanceKm),
+                label: 'Monthly Distance',
+              ),
+              AppMetric(
+                value: stats.totalDuration.timeLabel,
+                label: 'Total Time',
+              ),
+              AppMetric(
+                value: '${stats.currentStreakDays}',
+                label: 'Current Streak',
+              ),
+              AppMetric(
+                value: kilometersLabel(stats.longestRunKm),
+                label: 'Longest Run',
+              ),
+              AppMetric(
+                value: stats.fastestAveragePace?.paceLabel ?? '—',
+                label: 'Best Pace',
               ),
             ],
           ),
@@ -249,20 +278,20 @@ class _LifetimeStats extends StatelessWidget {
 }
 
 class _RecordGrid extends StatelessWidget {
-  const _RecordGrid({required this.statistics});
+  const _RecordGrid({required this.insights});
 
-  final AsyncValue<RunStatistics> statistics;
+  final AsyncValue<MotionInsights> insights;
 
   @override
   Widget build(BuildContext context) {
-    return statistics.when(
+    return insights.when(
       data: (stats) => Row(
         children: [
           Expanded(
             child: _Record(
-              value: stats.longestRunKm == null
+              value: stats.longestRunKm == 0
                   ? '—'
-                  : '${stats.longestRunKm!.toStringAsFixed(1)} km',
+                  : kilometersLabel(stats.longestRunKm),
               label: 'LONGEST RUN',
               color: AppPalette.electricBright,
             ),
@@ -270,8 +299,8 @@ class _RecordGrid extends StatelessWidget {
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: _Record(
-              value: stats.fastestFiveKilometerPace?.paceLabel ?? '—',
-              label: 'FASTEST 5K PACE',
+              value: stats.fastestAveragePace?.paceLabel ?? '—',
+              label: 'BEST AVG PACE',
               color: AppPalette.violet,
             ),
           ),

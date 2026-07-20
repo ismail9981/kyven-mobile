@@ -16,7 +16,8 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(homeDashboardProvider);
-    final latestRun = ref.watch(latestSavedRunProvider);
+    final insights = ref.watch(motionInsightsProvider);
+    final message = ref.watch(dashboardMessageProvider);
 
     return AppScaffold(
       padding: EdgeInsets.zero,
@@ -26,22 +27,21 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AppEntrance(child: GreetingHero(dashboard: dashboard)),
+              AppEntrance(
+                child: GreetingHero(dashboard: dashboard, message: message),
+              ),
               const SizedBox(height: AppSpacing.xl),
               AppEntrance(
                 child: StartRunHeroCard(
                   dashboard: dashboard,
+                  insights: insights,
                   onStartRun: () => context.goNamed(AppRoute.run.name),
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              AppEntrance(
-                child: TodayActivitySection(metrics: dashboard.todayMetrics),
-              ),
+              AppEntrance(child: TodayActivitySection(insights: insights)),
               const SizedBox(height: AppSpacing.xl),
-              AppEntrance(
-                child: WeeklyProgressSection(days: dashboard.weeklyProgress),
-              ),
+              AppEntrance(child: WeeklyProgressSection(insights: insights)),
               const SizedBox(height: AppSpacing.xl),
               AppEntrance(
                 child: TrainingPlanPreviewSection(plan: dashboard.trainingPlan),
@@ -55,7 +55,7 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               AppEntrance(
                 child: RecentActivitySection(
-                  latestRun: latestRun,
+                  insights: insights,
                   onStartRun: () => context.goNamed(AppRoute.run.name),
                   onOpenHistory: () =>
                       context.goNamed(AppRoute.runHistory.name),

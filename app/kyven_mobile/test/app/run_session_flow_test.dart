@@ -6,18 +6,22 @@ import 'package:kyven_mobile/features/run_tracking/presentation/screens/live_run
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_summary_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/start_run_screen.dart';
 
+import '../fakes/fake_run_history_repository.dart';
 import '../helpers/test_app.dart';
 
 void main() {
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<FakeRunHistoryRepository> pumpApp(WidgetTester tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(testApp());
+    final repository = FakeRunHistoryRepository();
+    addTearDown(repository.dispose);
+    await tester.pumpWidget(testApp(repository: repository));
     await tester.pump();
     await tester.pump(AppDurations.slow);
+    return repository;
   }
 
   Future<void> openPreparationFromHome(WidgetTester tester) async {
@@ -31,6 +35,7 @@ void main() {
     await openPreparationFromHome(tester);
     await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
     await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
     await tester.pump(AppDurations.slow);
   }
 
@@ -43,25 +48,153 @@ void main() {
     expect(find.byKey(const ValueKey('navigation-Home')), findsNothing);
   });
 
-  testWidgets('preparation shows countdown and begin session action', (
+  testWidgets('preparation starts countdown with visible cancel action', (
     tester,
   ) async {
     await openPreparationFromHome(tester);
 
-    expect(find.text('3'), findsOneWidget);
-    expect(find.text('2'), findsNothing);
-    expect(find.text('1'), findsNothing);
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('2'), findsOneWidget);
-    expect(find.text('3'), findsNothing);
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('1'), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(find.text('Go'), findsOneWidget);
+    expect(find.text('Ready'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('run-begin-session-button')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('run-countdown-cancel-button')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('2'), findsNothing);
+    expect(find.text('1'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('run-countdown-cancel-button')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('3'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('run-countdown-cancel-button')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('run-countdown-cancel-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('cancel returns to preparation and prevents active run', (
+    tester,
+  ) async {
+    final repository = await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.tap(find.byKey(const ValueKey('run-countdown-cancel-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.byType(StartRunScreen), findsOneWidget);
+    expect(find.text('Ready'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('run-begin-session-button')),
+      findsOneWidget,
+    );
+    expect(find.byType(LiveRunScreen), findsNothing);
+    expect(await repository.getAllRuns(), isEmpty);
+  });
+
+  testWidgets('back navigation safely cancels countdown', (tester) async {
+    await openPreparationFromHome(tester);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(find.byType(StartRunScreen), findsOneWidget);
+    expect(find.text('Ready'), findsOneWidget);
+    expect(find.byType(LiveRunScreen), findsNothing);
+  });
+
+  testWidgets('timer cannot start run after late cancellation', (tester) async {
+    await openPreparationFromHome(tester);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1300));
+    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('run-countdown-cancel-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.byType(StartRunScreen), findsOneWidget);
+    expect(find.text('Ready'), findsOneWidget);
+    expect(find.byType(LiveRunScreen), findsNothing);
+  });
+
+  testWidgets('rapid repeated cancel taps do not duplicate transitions', (
+    tester,
+  ) async {
+    await openPreparationFromHome(tester);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    final cancel = find.byKey(const ValueKey('run-countdown-cancel-button'));
+    await tester.tap(cancel);
+    await tester.tap(cancel);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.byType(StartRunScreen), findsOneWidget);
+    expect(find.text('Ready'), findsOneWidget);
+    expect(find.byType(LiveRunScreen), findsNothing);
+  });
+
+  testWidgets('starting again after cancellation works normally', (
+    tester,
+  ) async {
+    await openPreparationFromHome(tester);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('run-countdown-cancel-button')));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(AppDurations.slow);
+
+    expect(find.byType(LiveRunScreen), findsOneWidget);
+    expect(find.text('Running'), findsOneWidget);
+  });
+
+  testWidgets('normal countdown completion starts exactly one active run', (
+    tester,
+  ) async {
+    await openPreparationFromHome(tester);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(AppDurations.slow);
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(find.byType(LiveRunScreen), findsOneWidget);
+    expect(find.text('Running'), findsOneWidget);
+    expect(find.byKey(const ValueKey('run-pause-button')), findsOneWidget);
   });
 
   testWidgets('begin session renders live metrics', (tester) async {

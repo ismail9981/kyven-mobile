@@ -2,21 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/widgets.dart';
-import '../../../run_tracking/domain/entities/saved_run.dart';
+import '../../../run_tracking/domain/entities/motion_insights.dart';
+import '../../../run_tracking/domain/services/session_name_generator.dart';
 import '../../../run_tracking/presentation/widgets/saved_run_card.dart';
 import 'home_section_shell.dart';
 
 class RecentActivitySection extends StatelessWidget {
   const RecentActivitySection({
-    required this.latestRun,
+    required this.insights,
     required this.onStartRun,
     required this.onOpenHistory,
     required this.onOpenRun,
     super.key,
   });
 
-  final AsyncValue<SavedRun?> latestRun;
+  final AsyncValue<MotionInsights> insights;
   final VoidCallback onOpenHistory;
   final ValueChanged<String> onOpenRun;
   final VoidCallback onStartRun;
@@ -28,15 +30,14 @@ class RecentActivitySection extends StatelessWidget {
       subtitle: 'Saved locally on this device',
       actionLabel: 'History',
       onAction: onOpenHistory,
-      child: latestRun.when(
-        data: (run) {
-          if (run == null) {
+      child: insights.when(
+        data: (data) {
+          if (data.latestRuns.isEmpty) {
             return AppCard(
               key: const ValueKey('home-recent-empty-state'),
               child: AppEmptyState(
-                title: 'No runs saved yet',
-                message:
-                    'Finish a run to begin shaping your personal Motion Path.',
+                title: 'No runs recorded yet',
+                message: 'Start your first movement.',
                 icon: Icons.route_rounded,
                 iconColor: AppPalette.electricBright,
                 actionLabel: 'Start Your First Run',
@@ -47,7 +48,19 @@ class RecentActivitySection extends StatelessWidget {
 
           return Column(
             key: const ValueKey('home-recent-activity-list'),
-            children: [SavedRunCard(run: run, onTap: () => onOpenRun(run.id))],
+            children: [
+              for (var index = 0; index < data.latestRuns.length; index++) ...[
+                SavedRunCard(
+                  run: data.latestRuns[index],
+                  title: const SessionNameGenerator().generate(
+                    data.latestRuns[index],
+                  ),
+                  onTap: () => onOpenRun(data.latestRuns[index].id),
+                ),
+                if (index != data.latestRuns.length - 1)
+                  const SizedBox(height: AppSpacing.md),
+              ],
+            ],
           );
         },
         loading: () => const AppLoadingIndicator(label: 'Loading latest run'),

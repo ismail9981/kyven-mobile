@@ -6,11 +6,14 @@ import 'package:kyven_mobile/features/run_tracking/domain/entities/saved_run.dar
 
 import '../fakes/fake_run_history_repository.dart';
 
-Widget testApp({List<SavedRun> runs = const []}) {
+Widget testApp({
+  List<SavedRun> runs = const [],
+  FakeRunHistoryRepository? repository,
+}) {
   return ProviderScope(
     overrides: [
       runHistoryRepositoryProvider.overrideWithValue(
-        FakeRunHistoryRepository(runs),
+        repository ?? FakeRunHistoryRepository(runs),
       ),
     ],
     child: const KyvenApp(),

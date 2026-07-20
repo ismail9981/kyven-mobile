@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../application/run_history_providers.dart';
 import '../../domain/entities/run_statistics.dart';
+import '../../domain/services/session_name_generator.dart';
 import '../widgets/run_metric_formatters.dart';
 import '../widgets/saved_run_card.dart';
 import '../widgets/saved_run_formatters.dart';
@@ -63,6 +64,9 @@ class RunHistoryScreen extends ConsumerWidget {
                       for (var index = 0; index < runs.length; index++) ...[
                         SavedRunCard(
                           run: runs[index],
+                          title: const SessionNameGenerator().generate(
+                            runs[index],
+                          ),
                           onTap: () => context.goNamed(
                             AppRoute.runDetail.name,
                             pathParameters: {'runId': runs[index].id},

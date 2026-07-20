@@ -9,10 +9,16 @@ import 'run_metric_formatters.dart';
 import 'saved_run_formatters.dart';
 
 class SavedRunCard extends StatelessWidget {
-  const SavedRunCard({required this.run, this.onTap, super.key});
+  const SavedRunCard({
+    required this.run,
+    this.title = 'Motion Session',
+    this.onTap,
+    super.key,
+  });
 
   final VoidCallback? onTap;
   final SavedRun run;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -22,19 +28,14 @@ class SavedRunCard extends StatelessWidget {
     return AppCard(
       key: ValueKey('saved-run-card-${run.id}'),
       variant: AppCardVariant.interactive,
-      semanticLabel: run.accessibilityLabel,
+      semanticLabel: run.accessibilityLabel(title: title),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  'Motion Session',
-                  style: theme.textTheme.titleLarge,
-                ),
-              ),
+              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
               Text(
                 compactDateLabel(run.completedAt),
                 style: theme.textTheme.labelMedium?.copyWith(

@@ -10,6 +10,7 @@ import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../application/run_history_providers.dart';
 import '../../domain/entities/saved_run.dart';
+import '../../domain/services/session_name_generator.dart';
 import '../widgets/run_metric_formatters.dart';
 import '../widgets/saved_run_formatters.dart';
 
@@ -119,11 +120,11 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                detailedDateLabel(savedRun.completedAt),
+                                const SessionNameGenerator().generate(savedRun),
                                 style: theme.textTheme.headlineMedium,
                               ),
                               Text(
-                                savedRun.timeLabel,
+                                '${detailedDateLabel(savedRun.completedAt)} · ${savedRun.timeLabel}',
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: context.appColors.secondaryText,
                                 ),

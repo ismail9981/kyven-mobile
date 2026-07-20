@@ -27,8 +27,8 @@ void main() {
     await pumpDashboard(tester);
 
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('Good Morning,'), findsOneWidget);
-    expect(find.text('Morning, Alex.'), findsOneWidget);
+    expect(find.text('Runner'), findsOneWidget);
+    expect(find.text("Ready for today's run?"), findsOneWidget);
     expect(find.byKey(const ValueKey('home-start-run-card')), findsOneWidget);
     expect(find.text('Today’s Activity'), findsOneWidget);
   });
@@ -60,7 +60,7 @@ void main() {
     await reveal(tester, find.byKey(const ValueKey('home-training-card')));
 
     expect(find.byKey(const ValueKey('home-training-card')), findsOneWidget);
-    expect(find.text('Easy Run'), findsOneWidget);
+    expect(find.text('Next Movement'), findsOneWidget);
     expect(find.byKey(const ValueKey('home-view-plan-button')), findsOneWidget);
   });
 
@@ -76,7 +76,7 @@ void main() {
       find.byKey(const ValueKey('home-challenges-carousel')),
       findsOneWidget,
     );
-    expect(find.text('Run 20 km this week'), findsOneWidget);
+    expect(find.text('Build your Motion Path'), findsOneWidget);
   });
 
   testWidgets('recent activity renders empty state before first saved run', (
@@ -87,7 +87,7 @@ void main() {
     await reveal(tester, find.byKey(const ValueKey('home-recent-empty-state')));
 
     expect(find.text('Recent Activity'), findsOneWidget);
-    expect(find.text('No runs saved yet'), findsOneWidget);
+    expect(find.text('No runs recorded yet'), findsOneWidget);
     expect(find.text('Start Your First Run'), findsOneWidget);
   });
 }

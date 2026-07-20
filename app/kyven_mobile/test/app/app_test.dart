@@ -12,7 +12,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.text('Morning, Alex.'), findsOneWidget);
+    expect(find.text('Runner'), findsOneWidget);
     expect(
       Theme.of(tester.element(find.byType(HomeScreen))).useMaterial3,
       isTrue,
