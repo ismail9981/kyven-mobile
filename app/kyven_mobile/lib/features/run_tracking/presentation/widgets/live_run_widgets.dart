@@ -64,6 +64,12 @@ class LiveRunMetricsGrid extends StatelessWidget {
               ),
               Expanded(
                 child: AppMetric(
+                  value: metrics.currentSpeedMetersPerSecond.speedLabel,
+                  label: 'Speed km/h',
+                ),
+              ),
+              Expanded(
+                child: AppMetric(
                   value: '${metrics.calories}',
                   label: 'Calories',
                 ),

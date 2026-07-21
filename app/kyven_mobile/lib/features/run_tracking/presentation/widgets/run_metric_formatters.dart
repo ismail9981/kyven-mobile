@@ -19,3 +19,11 @@ extension RunDurationFormatting on Duration {
 extension RunDistanceFormatting on double {
   String get distanceLabel => toStringAsFixed(2);
 }
+
+extension RunSpeedFormatting on double? {
+  String get speedLabel {
+    final speed = this;
+    if (speed == null || !speed.isFinite || speed <= 0) return '--';
+    return (speed * 3.6).toStringAsFixed(1);
+  }
+}

@@ -64,6 +64,12 @@ void main() {
     await tester.pump(AppDurations.slow);
   }
 
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pump(AppDurations.fast);
+    await tester.tap(finder);
+  }
+
   testWidgets('Start Run flow opens preparation from Home', (tester) async {
     await openPreparationFromHome(tester);
 
@@ -328,6 +334,7 @@ void main() {
     expect(find.byKey(const ValueKey('navigation-Home')), findsNothing);
     expect(find.text('Distance'), findsOneWidget);
     expect(find.text('Time'), findsOneWidget);
+    expect(find.text('Speed km/h'), findsOneWidget);
     expect(find.text('Calories'), findsOneWidget);
   });
 
@@ -335,13 +342,13 @@ void main() {
     await beginLiveRun(tester);
 
     expect(find.byKey(const ValueKey('run-pause-button')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('run-pause-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-pause-button')));
     await tester.pump();
 
     expect(find.text('Paused'), findsOneWidget);
     expect(find.byKey(const ValueKey('run-resume-button')), findsOneWidget);
     expect(find.text('Resume'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('run-resume-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-resume-button')));
     await tester.pump();
 
     expect(find.text('Running'), findsOneWidget);
@@ -351,7 +358,7 @@ void main() {
   testWidgets('finish confirmation can be cancelled', (tester) async {
     await beginLiveRun(tester);
 
-    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-finish-button')));
     await tester.pump();
 
     expect(find.text('Finish run?'), findsOneWidget);
@@ -370,7 +377,7 @@ void main() {
     await beginLiveRun(tester);
     await tester.pump(const Duration(seconds: 5));
 
-    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-finish-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
     await tester.tap(find.byKey(const ValueKey('run-finish-confirm-button')));
@@ -409,7 +416,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-finish-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
     await tester.tap(find.byKey(const ValueKey('run-finish-confirm-button')));
@@ -427,7 +434,7 @@ void main() {
     await beginLiveRun(tester);
     await tester.pump(const Duration(seconds: 5));
 
-    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-finish-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
     await tester.tap(find.byKey(const ValueKey('run-finish-confirm-button')));
@@ -458,7 +465,7 @@ void main() {
     );
     expect(find.textContaining('mock', findRichText: true), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tapVisible(tester, find.byKey(const ValueKey('run-finish-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
     await tester.tap(find.byKey(const ValueKey('run-finish-confirm-button')));
