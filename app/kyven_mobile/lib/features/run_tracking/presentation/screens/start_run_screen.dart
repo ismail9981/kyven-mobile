@@ -9,7 +9,10 @@ import '../../../../core/theme/app_durations.dart';
 import '../../../../core/theme/app_layout.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../application/location_tracking_providers.dart';
+import '../../application/run_location_state.dart';
 import '../../application/run_session_providers.dart';
 
 class StartRunScreen extends ConsumerStatefulWidget {
@@ -30,6 +33,21 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
   void dispose() {
     _stopCountdown();
     super.dispose();
+  }
+
+  Future<void> _requestCountdown() async {
+    if (_countdownActive || _transitionCommitted) {
+      return;
+    }
+
+    final ready = await ref
+        .read(runLocationProvider.notifier)
+        .ensureReadyForRun();
+    if (!mounted || !ready) {
+      return;
+    }
+
+    _startCountdown();
   }
 
   void _startCountdown() {
@@ -92,6 +110,7 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
     if (!mounted) {
       return;
     }
+    ref.read(runLocationProvider.notifier).startTracking();
     final notifier = ref.read(runSessionProvider.notifier);
     notifier.prepare();
     notifier.start();
@@ -101,6 +120,8 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final locationState = ref.watch(runLocationProvider);
+    final locationMessage = locationState.userMessage;
     final countdownValue = _countdownValues[_countdownIndex];
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
@@ -125,10 +146,10 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const AppTag(
-                        label: 'GPS LOCKED · PREVIEW',
-                        color: AppPalette.lime,
-                        icon: Icons.gps_fixed_rounded,
+                      AppTag(
+                        label: locationState.preparationLabel,
+                        color: _preparationColor(context, locationState),
+                        icon: _preparationIcon(locationState),
                       ),
                       const SizedBox(height: AppSpacing.xxxl),
                       Text(
@@ -203,13 +224,49 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xxxl),
+                      if (!_countdownActive && locationMessage != null) ...[
+                        AppStatusBanner(
+                          status:
+                              locationState.canOpenAppSettings ||
+                                  locationState.canOpenLocationSettings
+                              ? AppStatus.warning
+                              : AppStatus.info,
+                          title: 'GPS check',
+                          message: locationMessage,
+                        ),
+                        if (locationState.canOpenAppSettings ||
+                            locationState.canOpenLocationSettings) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          AppButton(
+                            label: locationState.canOpenAppSettings
+                                ? 'Open App Settings'
+                                : 'Open Location Settings',
+                            variant: AppButtonVariant.secondary,
+                            icon: Icons.settings_rounded,
+                            onPressed: () {
+                              final notifier = ref.read(
+                                runLocationProvider.notifier,
+                              );
+                              if (locationState.canOpenAppSettings) {
+                                unawaited(notifier.openAppSettings());
+                              } else {
+                                unawaited(notifier.openLocationSettings());
+                              }
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.xl),
+                      ],
                       if (_countdownActive)
                         const SizedBox(height: AppLayout.minimumTapTarget)
                       else
                         AppButton(
                           key: const ValueKey('run-begin-session-button'),
                           label: 'Begin Session',
-                          onPressed: _startCountdown,
+                          onPressed: locationState.isChecking
+                              ? null
+                              : _requestCountdown,
+                          isLoading: locationState.isChecking,
                           icon: Icons.arrow_forward_rounded,
                         ),
                       const SizedBox(height: AppSpacing.xl),
@@ -232,6 +289,21 @@ class _StartRunScreenState extends ConsumerState<StartRunScreen> {
         ),
       ),
     );
+  }
+
+  Color _preparationColor(
+    BuildContext context,
+    RunLocationState locationState,
+  ) {
+    if (locationState.isReady) return AppPalette.lime;
+    if (locationState.failure != null) return context.appColors.warning;
+    return context.appColors.info;
+  }
+
+  IconData _preparationIcon(RunLocationState locationState) {
+    if (locationState.isReady) return Icons.gps_fixed_rounded;
+    if (locationState.failure != null) return Icons.gps_off_rounded;
+    return Icons.gps_not_fixed_rounded;
   }
 }
 

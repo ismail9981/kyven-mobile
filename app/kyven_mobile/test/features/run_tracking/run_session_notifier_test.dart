@@ -1,9 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kyven_mobile/features/run_tracking/application/run_session_providers.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/location_point.dart';
 import 'package:kyven_mobile/features/run_tracking/domain/entities/run_session.dart';
 
 void main() {
+  LocationPoint point({
+    required double latitude,
+    required double longitude,
+    required int seconds,
+  }) {
+    return LocationPoint(
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: 8,
+      recordedAt: DateTime(2026, 7, 21, 7, 0, seconds),
+    );
+  }
+
   ProviderContainer createContainer() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
@@ -35,7 +49,7 @@ void main() {
     expect(container.read(runSessionProvider).session, isNotNull);
   });
 
-  test('running metrics increase deterministically', () {
+  test('running timer advances elapsed and moving time', () {
     final container = createContainer();
     final notifier = container.read(runSessionProvider.notifier)..start();
 
@@ -43,11 +57,30 @@ void main() {
     final metrics = container.read(runSessionProvider).metrics;
 
     expect(metrics.elapsed, const Duration(seconds: 10));
-    expect(metrics.distanceKm, greaterThan(0));
+    expect(metrics.movingTime, const Duration(seconds: 10));
+    expect(metrics.distanceKm, 0);
     expect(metrics.calories, greaterThanOrEqualTo(0));
-    expect(metrics.currentPace.inSeconds, inInclusiveRange(300, 375));
     expect(metrics.heartRate, inInclusiveRange(136, 148));
     expect(metrics.cadence, inInclusiveRange(166, 172));
+  });
+
+  test('GPS samples update distance, speed, and pace', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+
+    notifier.processLocationPoint(
+      point(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    notifier.tick(const Duration(seconds: 10));
+    notifier.processLocationPoint(
+      point(latitude: 25.20498, longitude: 55.2708, seconds: 10),
+    );
+
+    final metrics = container.read(runSessionProvider).metrics;
+    expect(metrics.distanceKm, closeTo(0.02, 0.003));
+    expect(metrics.currentSpeedMetersPerSecond, closeTo(2, 0.25));
+    expect(metrics.currentPace, isNot(Duration.zero));
+    expect(metrics.averagePace, isNot(Duration.zero));
   });
 
   test('pause stops simulated metrics', () {
@@ -64,25 +97,48 @@ void main() {
     expect(container.read(runSessionProvider).metrics, pausedMetrics);
   });
 
-  test('resume restarts simulated metrics', () {
+  test('resume keeps timer safe after pause', () {
     final container = createContainer();
     final notifier = container.read(runSessionProvider.notifier)..start();
 
     notifier.tick(const Duration(seconds: 8));
     notifier.pause();
-    final pausedDistance = container
-        .read(runSessionProvider)
-        .metrics
-        .distanceKm;
+    final pausedMetrics = container.read(runSessionProvider).metrics;
 
     notifier.resume();
     notifier.tick(const Duration(seconds: 8));
 
     expect(container.read(runSessionProvider).status, RunSessionStatus.running);
     expect(
-      container.read(runSessionProvider).metrics.distanceKm,
-      greaterThan(pausedDistance),
+      container.read(runSessionProvider).metrics.elapsed,
+      greaterThan(pausedMetrics.elapsed),
     );
+  });
+
+  test('pause ignores GPS points and resume resets baseline', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+
+    notifier.processLocationPoint(
+      point(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    notifier.tick(const Duration(seconds: 10));
+    notifier.processLocationPoint(
+      point(latitude: 25.20498, longitude: 55.2708, seconds: 10),
+    );
+    final beforePause = container.read(runSessionProvider).metrics.distanceKm;
+
+    notifier.pause();
+    notifier.processLocationPoint(
+      point(latitude: 25.21, longitude: 55.2708, seconds: 20),
+    );
+    expect(container.read(runSessionProvider).metrics.distanceKm, beforePause);
+
+    notifier.resume();
+    notifier.processLocationPoint(
+      point(latitude: 25.21, longitude: 55.2708, seconds: 30),
+    );
+    expect(container.read(runSessionProvider).metrics.distanceKm, beforePause);
   });
 
   test('finish creates a completed summary', () {

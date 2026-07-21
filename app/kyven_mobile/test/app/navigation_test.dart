@@ -56,7 +56,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(StartRunScreen), findsOneWidget);
-    expect(find.text('GPS LOCKED · PREVIEW'), findsOneWidget);
+    expect(find.text('GPS PREVIEW'), findsOneWidget);
   });
 
   testWidgets('development design-system route renders outside the shell', (

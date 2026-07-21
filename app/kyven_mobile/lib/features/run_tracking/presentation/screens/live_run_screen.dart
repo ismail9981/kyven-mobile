@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../application/location_tracking_providers.dart';
+import '../../application/run_location_state.dart';
 import '../../application/run_session_providers.dart';
 import '../../domain/entities/run_session.dart';
 import '../widgets/live_run_widgets.dart';
@@ -41,6 +45,7 @@ class LiveRunScreen extends ConsumerWidget {
     if (!context.mounted) return;
     final notifier = ref.read(runSessionProvider.notifier);
     if (confirmed ?? false) {
+      unawaited(ref.read(runLocationProvider.notifier).stopTracking());
       notifier.completeFinish();
       context.goNamed(AppRoute.runSummary.name);
     } else {
@@ -51,6 +56,7 @@ class LiveRunScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(runSessionProvider);
+    final locationState = ref.watch(runLocationProvider);
     final metrics = state.metrics;
     final theme = Theme.of(context);
     final isPaused = state.status == RunSessionStatus.paused;
@@ -78,12 +84,10 @@ class LiveRunScreen extends ConsumerWidget {
                 children: [
                   AppTag(
                     label: isPaused
-                        ? 'PAUSED · GPS PREVIEW'
-                        : 'GPS LOCKED · PREVIEW',
-                    color: isPaused
-                        ? context.appColors.warning
-                        : AppPalette.lime,
-                    icon: Icons.gps_fixed_rounded,
+                        ? 'Paused · ${locationState.gpsLabel}'
+                        : locationState.gpsLabel,
+                    color: _gpsColor(context, locationState),
+                    icon: _gpsIcon(locationState),
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -198,5 +202,23 @@ class LiveRunScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Color _gpsColor(BuildContext context, RunLocationState locationState) {
+    return switch (locationState.signalStatus) {
+      LocationSignalStatus.ready => AppPalette.lime,
+      LocationSignalStatus.weak => context.appColors.warning,
+      LocationSignalStatus.searching => context.appColors.info,
+      LocationSignalStatus.unavailable => context.appColors.error,
+    };
+  }
+
+  IconData _gpsIcon(RunLocationState locationState) {
+    return switch (locationState.signalStatus) {
+      LocationSignalStatus.ready => Icons.gps_fixed_rounded,
+      LocationSignalStatus.weak => Icons.gps_not_fixed_rounded,
+      LocationSignalStatus.searching => Icons.gps_not_fixed_rounded,
+      LocationSignalStatus.unavailable => Icons.gps_off_rounded,
+    };
   }
 }

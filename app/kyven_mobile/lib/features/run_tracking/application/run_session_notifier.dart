@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/entities/gps_sample_decision.dart';
+import '../domain/entities/location_point.dart';
 import '../domain/entities/run_metrics.dart';
 import '../domain/entities/run_session.dart';
 import '../domain/entities/run_summary.dart';
+import '../domain/services/run_gps_metrics_processor.dart';
 import 'run_session_state.dart';
 
 class RunSessionNotifier extends Notifier<RunSessionState> {
+  final _gpsProcessor = RunGpsMetricsProcessor();
   Timer? _timer;
+  DateTime? _pausedAt;
 
   @override
   RunSessionState build() {
@@ -23,6 +28,8 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
     }
 
     _stopTimer();
+    _gpsProcessor.reset();
+    _pausedAt = null;
     state = RunSessionState(
       status: RunSessionStatus.preparing,
       session: RunSession(
@@ -57,23 +64,14 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
 
     final previous = session.metrics;
     final elapsed = previous.elapsed + delta;
+    final movingTime = previous.movingTime + delta;
     final elapsedSeconds = elapsed.inSeconds;
-    final paceSeconds = 330 + ((elapsedSeconds % 9) - 4) * 3;
-    final safePaceSeconds = paceSeconds.clamp(300, 375);
-    final distanceDelta = delta.inMilliseconds / 1000 / safePaceSeconds;
-    final distanceKm = (previous.distanceKm + distanceDelta).clamp(
-      0,
-      double.infinity,
-    );
-    final averagePaceSeconds = distanceKm == 0
-        ? 0
-        : elapsed.inSeconds / distanceKm;
+    final distanceKm = previous.gps.totalDistanceMeters / 1000;
 
     final metrics = previous.copyWith(
       elapsed: elapsed,
-      distanceKm: distanceKm.toDouble(),
-      currentPace: Duration(seconds: safePaceSeconds.toInt()),
-      averagePace: Duration(seconds: averagePaceSeconds.round()),
+      movingTime: movingTime,
+      distanceKm: distanceKm,
       calories: (distanceKm * 68).round().clamp(0, 9999),
       cadence: 166 + (elapsedSeconds % 7),
       heartRate: 136 + (elapsedSeconds % 13),
@@ -82,14 +80,65 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
     state = state.copyWith(session: session.copyWith(metrics: metrics));
   }
 
+  GpsSampleDecision? processLocationPoint(LocationPoint point) {
+    if (state.status != RunSessionStatus.running) {
+      return null;
+    }
+
+    final session = state.session;
+    if (session == null) {
+      return null;
+    }
+
+    final result = _gpsProcessor.process(
+      point,
+      movingTime: session.metrics.movingTime,
+    );
+    final gps = result.metrics;
+    final currentPaceSeconds = gps.currentPaceSecondsPerKilometer;
+    final averagePaceSeconds = gps.averagePaceSecondsPerKilometer;
+    final metrics = session.metrics.copyWith(
+      gps: gps,
+      distanceKm: gps.totalDistanceMeters / 1000,
+      currentSpeedMetersPerSecond: gps.smoothedSpeedMetersPerSecond,
+      currentPace: currentPaceSeconds == null
+          ? Duration.zero
+          : Duration(seconds: currentPaceSeconds.round()),
+      averagePace: averagePaceSeconds == null
+          ? Duration.zero
+          : Duration(seconds: averagePaceSeconds.round()),
+      calories: ((gps.totalDistanceMeters / 1000) * 68).round().clamp(0, 9999),
+    );
+    state = state.copyWith(session: session.copyWith(metrics: metrics));
+    return result.decision;
+  }
+
   void pause() {
     if (state.status != RunSessionStatus.running) return;
     _stopTimer();
+    _pausedAt = DateTime.now();
     state = state.copyWith(status: RunSessionStatus.paused);
   }
 
   void resume() {
     if (state.status != RunSessionStatus.paused) return;
+    _gpsProcessor.resetBaselineForResume();
+    final session = state.session;
+    final pauseDuration = _consumePauseDuration();
+    if (session != null) {
+      final metrics = session.metrics;
+      state = state.copyWith(
+        session: session.copyWith(
+          metrics: metrics.copyWith(
+            elapsed: metrics.elapsed + pauseDuration,
+            pausedTime: metrics.pausedTime + pauseDuration,
+            gps: _gpsProcessor.metrics,
+            currentPace: Duration.zero,
+            clearCurrentSpeed: true,
+          ),
+        ),
+      );
+    }
     state = state.copyWith(status: RunSessionStatus.running);
     _startTimer();
   }
@@ -100,11 +149,17 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
       return;
     }
     _stopTimer();
-    state = state.copyWith(status: RunSessionStatus.finishing);
+    state = state.copyWith(
+      status: RunSessionStatus.finishing,
+      session: state.status == RunSessionStatus.paused
+          ? _sessionWithConsumedPauseDuration(state.session)
+          : state.session,
+    );
   }
 
   void cancelFinish() {
     if (state.status != RunSessionStatus.finishing) return;
+    _pausedAt = DateTime.now();
     state = state.copyWith(status: RunSessionStatus.paused);
   }
 
@@ -125,6 +180,8 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
 
   void reset() {
     _stopTimer();
+    _gpsProcessor.reset();
+    _pausedAt = null;
     state = const RunSessionState();
   }
 
@@ -136,6 +193,34 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
   void _stopTimer() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  Duration _consumePauseDuration() {
+    final pausedAt = _pausedAt;
+    _pausedAt = null;
+    if (pausedAt == null) {
+      return Duration.zero;
+    }
+    final duration = DateTime.now().difference(pausedAt);
+    return duration.isNegative ? Duration.zero : duration;
+  }
+
+  RunSession? _sessionWithConsumedPauseDuration(RunSession? session) {
+    if (session == null) {
+      _pausedAt = null;
+      return null;
+    }
+    final pauseDuration = _consumePauseDuration();
+    if (pauseDuration <= Duration.zero) {
+      return session;
+    }
+    final metrics = session.metrics;
+    return session.copyWith(
+      metrics: metrics.copyWith(
+        elapsed: metrics.elapsed + pauseDuration,
+        pausedTime: metrics.pausedTime + pauseDuration,
+      ),
+    );
   }
 
   String _achievementFor(RunMetrics metrics) {

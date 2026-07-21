@@ -1,19 +1,25 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kyven_mobile/app/app.dart';
+import 'package:kyven_mobile/features/run_tracking/application/location_repository_provider.dart';
 import 'package:kyven_mobile/features/run_tracking/application/run_history_providers.dart';
 import 'package:kyven_mobile/features/run_tracking/domain/entities/saved_run.dart';
 
+import '../fakes/fake_location_tracking_repository.dart';
 import '../fakes/fake_run_history_repository.dart';
 
 Widget testApp({
   List<SavedRun> runs = const [],
+  FakeLocationTrackingRepository? locationRepository,
   FakeRunHistoryRepository? repository,
 }) {
   return ProviderScope(
     overrides: [
       runHistoryRepositoryProvider.overrideWithValue(
         repository ?? FakeRunHistoryRepository(runs),
+      ),
+      locationTrackingRepositoryProvider.overrideWithValue(
+        locationRepository ?? FakeLocationTrackingRepository(),
       ),
     ],
     child: const KyvenApp(),

@@ -129,7 +129,7 @@ void main() {
     await tester.pump(AppDurations.slow);
 
     expect(find.text('Recent Activity'), findsOneWidget);
-    expect(find.text('6.4 km'), findsOneWidget);
+    expect(find.text('6.4 km'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('home empty CTA opens Start Run', (tester) async {

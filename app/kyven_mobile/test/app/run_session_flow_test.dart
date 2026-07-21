@@ -2,33 +2,58 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kyven_mobile/core/theme/app_durations.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/location_permission_status.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/location_point.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/live_run_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_summary_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/start_run_screen.dart';
 
+import '../fakes/fake_location_tracking_repository.dart';
 import '../fakes/fake_run_history_repository.dart';
 import '../helpers/test_app.dart';
 
 void main() {
-  Future<FakeRunHistoryRepository> pumpApp(WidgetTester tester) async {
+  LocationPoint gpsPoint({
+    required double latitude,
+    required double longitude,
+    required int seconds,
+  }) {
+    return LocationPoint(
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: 8,
+      recordedAt: DateTime(2026, 7, 21, 7, 0, seconds),
+    );
+  }
+
+  Future<({FakeRunHistoryRepository runs, FakeLocationTrackingRepository gps})>
+  pumpApp(WidgetTester tester, {FakeLocationTrackingRepository? gps}) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final repository = FakeRunHistoryRepository();
+    final locationRepository = gps ?? FakeLocationTrackingRepository();
     addTearDown(repository.dispose);
-    await tester.pumpWidget(testApp(repository: repository));
+    await tester.pumpWidget(
+      testApp(repository: repository, locationRepository: locationRepository),
+    );
     await tester.pump();
     await tester.pump(AppDurations.slow);
-    return repository;
+    return (runs: repository, gps: locationRepository);
   }
 
-  Future<void> openPreparationFromHome(WidgetTester tester) async {
-    await pumpApp(tester);
+  Future<({FakeRunHistoryRepository runs, FakeLocationTrackingRepository gps})>
+  openPreparationFromHome(
+    WidgetTester tester, {
+    FakeLocationTrackingRepository? gps,
+  }) async {
+    final repositories = await pumpApp(tester, gps: gps);
     await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
+    return repositories;
   }
 
   Future<void> beginLiveRun(WidgetTester tester) async {
@@ -44,7 +69,7 @@ void main() {
 
     expect(find.byType(StartRunScreen), findsOneWidget);
     expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('GPS LOCKED · PREVIEW'), findsOneWidget);
+    expect(find.text('GPS PREVIEW'), findsOneWidget);
     expect(find.byKey(const ValueKey('navigation-Home')), findsNothing);
   });
 
@@ -91,7 +116,7 @@ void main() {
   testWidgets('cancel returns to preparation and prevents active run', (
     tester,
   ) async {
-    final repository = await pumpApp(tester);
+    final repositories = await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
     await tester.pump();
     await tester.pump(AppDurations.slow);
@@ -110,7 +135,86 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(LiveRunScreen), findsNothing);
-    expect(await repository.getAllRuns(), isEmpty);
+    expect(await repositories.runs.getAllRuns(), isEmpty);
+    expect(repositories.gps.totalSubscriptionCount, 0);
+  });
+
+  testWidgets('countdown begins only after location readiness', (tester) async {
+    final gps = FakeLocationTrackingRepository();
+    await openPreparationFromHome(tester, gps: gps);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+
+    expect(gps.requestPermissionCount, 0);
+    expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('permission denied keeps user on preparation', (tester) async {
+    final gps = FakeLocationTrackingRepository(
+      permissionStatus: LocationPermissionStatus.denied,
+      requestedPermissionStatus: LocationPermissionStatus.denied,
+    );
+    await pumpApp(tester, gps: gps);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.fast);
+
+    expect(find.byType(StartRunScreen), findsOneWidget);
+    expect(find.text('3'), findsNothing);
+    expect(find.text('GPS check'), findsOneWidget);
+    expect(
+      find.textContaining('KYVEN needs location while you run'),
+      findsOneWidget,
+    );
+    expect(gps.requestPermissionCount, 1);
+    expect(gps.totalSubscriptionCount, 0);
+  });
+
+  testWidgets('permanently denied location exposes app settings action', (
+    tester,
+  ) async {
+    final gps = FakeLocationTrackingRepository(
+      permissionStatus: LocationPermissionStatus.deniedForever,
+    );
+    await pumpApp(tester, gps: gps);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.fast);
+
+    expect(find.text('Open App Settings'), findsOneWidget);
+    await tester.tap(find.text('Open App Settings'));
+    await tester.pump();
+
+    expect(gps.appSettingsOpened, isTrue);
+  });
+
+  testWidgets('location services disabled exposes location settings action', (
+    tester,
+  ) async {
+    final gps = FakeLocationTrackingRepository(serviceEnabled: false);
+    await pumpApp(tester, gps: gps);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.fast);
+
+    expect(find.text('Open Location Settings'), findsOneWidget);
+    await tester.tap(find.text('Open Location Settings'));
+    await tester.pump();
+
+    expect(gps.locationSettingsOpened, isTrue);
   });
 
   testWidgets('back navigation safely cancels countdown', (tester) async {
@@ -179,6 +283,23 @@ void main() {
 
     expect(find.byType(LiveRunScreen), findsOneWidget);
     expect(find.text('Running'), findsOneWidget);
+    expect(find.text('GPS SEARCHING'), findsOneWidget);
+  });
+
+  testWidgets('active run starts one location subscription', (tester) async {
+    final repositories = await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(AppDurations.slow);
+
+    expect(find.byType(LiveRunScreen), findsOneWidget);
+    expect(repositories.gps.totalSubscriptionCount, 1);
+    expect(repositories.gps.activeSubscriptionCount, 1);
   });
 
   testWidgets('normal countdown completion starts exactly one active run', (
@@ -264,6 +385,42 @@ void main() {
       find.byKey(const ValueKey('run-summary-metrics-card')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('finish persists GPS-derived metrics exactly once', (
+    tester,
+  ) async {
+    final repositories = await pumpApp(tester);
+    await tester.tap(find.byKey(const ValueKey('home-start-run-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+    await tester.tap(find.byKey(const ValueKey('run-begin-session-button')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(AppDurations.slow);
+
+    repositories.gps.emit(
+      gpsPoint(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 10));
+    repositories.gps.emit(
+      gpsPoint(latitude: 25.20498, longitude: 55.2708, seconds: 10),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('run-finish-button')));
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+    await tester.tap(find.byKey(const ValueKey('run-finish-confirm-button')));
+    await tester.pump(AppDurations.slow);
+    await tester.pump(AppDurations.slow);
+
+    final runs = await repositories.runs.getAllRuns();
+    expect(runs, hasLength(1));
+    expect(runs.single.distanceKm, closeTo(0.02, 0.004));
+    expect(runs.single.averagePace, isNot(Duration.zero));
+    expect(runs.single.routePreview, isEmpty);
   });
 
   testWidgets('Done resets summary and returns Home', (tester) async {
