@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/gps_sample_decision.dart';
 import '../domain/entities/location_point.dart';
 import '../domain/entities/run_metrics.dart';
+import '../domain/entities/run_route.dart';
+import '../domain/entities/run_route_point.dart';
 import '../domain/entities/run_session.dart';
 import '../domain/entities/run_summary.dart';
 import '../domain/services/run_gps_metrics_processor.dart';
@@ -36,6 +38,7 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
         id: 'local-run-${DateTime.now().millisecondsSinceEpoch}',
         startedAt: DateTime.now(),
         metrics: RunMetrics.zero(),
+        route: RunRoute.empty(),
       ),
     );
   }
@@ -109,7 +112,12 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
           : Duration(seconds: averagePaceSeconds.round()),
       calories: ((gps.totalDistanceMeters / 1000) * 68).round().clamp(0, 9999),
     );
-    state = state.copyWith(session: session.copyWith(metrics: metrics));
+    final route = result.decision.isAccepted
+        ? session.route.appendPoint(RunRoutePoint.fromLocationPoint(point))
+        : session.route;
+    state = state.copyWith(
+      session: session.copyWith(metrics: metrics, route: route),
+    );
     return result.decision;
   }
 
@@ -117,7 +125,12 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
     if (state.status != RunSessionStatus.running) return;
     _stopTimer();
     _pausedAt = DateTime.now();
-    state = state.copyWith(status: RunSessionStatus.paused);
+    state = state.copyWith(
+      status: RunSessionStatus.paused,
+      session: state.session?.copyWith(
+        route: state.session?.route.closeActiveSegment(),
+      ),
+    );
   }
 
   void resume() {
@@ -153,7 +166,9 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
       status: RunSessionStatus.finishing,
       session: state.status == RunSessionStatus.paused
           ? _sessionWithConsumedPauseDuration(state.session)
-          : state.session,
+          : state.session?.copyWith(
+              route: state.session?.route.closeActiveSegment(),
+            ),
     );
   }
 
@@ -167,13 +182,17 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
     if (state.status != RunSessionStatus.finishing) return;
     final session = state.session;
     if (session == null) return;
+    final completedSession = session.copyWith(
+      route: session.route.closeActiveSegment(),
+    );
 
     state = state.copyWith(
       status: RunSessionStatus.completed,
+      session: completedSession,
       summary: RunSummary(
         completedAt: DateTime.now(),
-        metrics: session.metrics,
-        achievement: _achievementFor(session.metrics),
+        metrics: completedSession.metrics,
+        achievement: _achievementFor(completedSession.metrics),
       ),
     );
   }
@@ -212,10 +231,11 @@ class RunSessionNotifier extends Notifier<RunSessionState> {
     }
     final pauseDuration = _consumePauseDuration();
     if (pauseDuration <= Duration.zero) {
-      return session;
+      return session.copyWith(route: session.route.closeActiveSegment());
     }
     final metrics = session.metrics;
     return session.copyWith(
+      route: session.route.closeActiveSegment(),
       metrics: metrics.copyWith(
         elapsed: metrics.elapsed + pauseDuration,
         pausedTime: metrics.pausedTime + pauseDuration,

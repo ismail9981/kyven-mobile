@@ -10,14 +10,17 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
 import '../../application/run_location_state.dart';
+import '../../domain/entities/run_route.dart';
 import 'run_current_location_marker.dart';
 import 'run_map_camera_controller.dart';
 import 'run_map_config.dart';
 import 'run_map_controller.dart';
+import 'run_route_polylines.dart';
 
 class RunMap extends ConsumerStatefulWidget {
   const RunMap({
     required this.locationState,
+    required this.route,
     this.enableTiles = true,
     this.enableInteractiveMap = true,
     super.key,
@@ -26,6 +29,7 @@ class RunMap extends ConsumerStatefulWidget {
   final bool enableInteractiveMap;
   final bool enableTiles;
   final RunLocationState locationState;
+  final RunRoute route;
 
   @override
   ConsumerState<RunMap> createState() => _RunMapState();
@@ -109,6 +113,7 @@ class _RunMapState extends ConsumerState<RunMap>
                           )
                         else
                           const _RunMapTestSurface(),
+                        RunRoutePolylines(route: widget.route),
                         MarkerLayer(
                           markers: [
                             if (location != null)

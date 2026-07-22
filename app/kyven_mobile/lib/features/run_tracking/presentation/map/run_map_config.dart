@@ -1,6 +1,8 @@
 import 'package:flutter/animation.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/theme/app_palette.dart';
+
 class RunMapConfig {
   const RunMapConfig._();
 
@@ -14,4 +16,9 @@ class RunMapConfig {
   static const userAgentPackageName = 'com.kyven.mobile';
   static const openStreetMapTileUrl =
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  static const minimumPolylinePoints = 2;
+  static const routeLineWidth = 5.5;
+  static const routeBorderWidth = 2.25;
+  static const routeLineColor = AppPalette.lime;
+  static const routeBorderColor = AppPalette.ink;
 }

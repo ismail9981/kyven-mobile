@@ -13,6 +13,7 @@ import '../../../../shared/widgets/widgets.dart';
 import '../../application/location_tracking_providers.dart';
 import '../../application/run_location_state.dart';
 import '../../application/run_session_providers.dart';
+import '../../domain/entities/run_route.dart';
 import '../../domain/entities/run_session.dart';
 import '../map/run_map.dart';
 import '../widgets/live_run_widgets.dart';
@@ -111,7 +112,10 @@ class LiveRunScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.xl),
               SizedBox(
                 height: 310,
-                child: RunMap(locationState: locationState),
+                child: RunMap(
+                  locationState: locationState,
+                  route: state.session?.route ?? RunRoute.empty(),
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               Text(

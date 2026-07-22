@@ -83,6 +83,48 @@ void main() {
     expect(metrics.averagePace, isNot(Duration.zero));
   });
 
+  test('accepted GPS samples record ordered route points', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+    addTearDown(notifier.reset);
+
+    final first = point(latitude: 25.2048, longitude: 55.2708, seconds: 0);
+    final second = point(latitude: 25.20498, longitude: 55.2708, seconds: 10);
+
+    notifier.processLocationPoint(first);
+    notifier.tick(const Duration(seconds: 10));
+    notifier.processLocationPoint(second);
+
+    final route = container.read(runSessionProvider).session!.route;
+    expect(route.segments, hasLength(1));
+    expect(route.segments.single.points.map((point) => point.timestamp), [
+      first.recordedAt,
+      second.recordedAt,
+    ]);
+  });
+
+  test('rejected and duplicate GPS samples are not recorded in route', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+    addTearDown(notifier.reset);
+
+    final first = point(latitude: 25.2048, longitude: 55.2708, seconds: 0);
+    final duplicate = point(latitude: 25.2048, longitude: 55.2708, seconds: 8);
+    final inaccurate = LocationPoint(
+      latitude: 25.20498,
+      longitude: 55.2708,
+      accuracy: 90,
+      recordedAt: DateTime(2026, 7, 21, 7, 0, 10),
+    );
+
+    notifier.processLocationPoint(first);
+    notifier.processLocationPoint(duplicate);
+    notifier.processLocationPoint(inaccurate);
+
+    final route = container.read(runSessionProvider).session!.route;
+    expect(route.segments.single.points, hasLength(1));
+  });
+
   test('pause stops simulated metrics', () {
     final container = createContainer();
     final notifier = container.read(runSessionProvider.notifier)..start();
@@ -141,6 +183,40 @@ void main() {
     expect(container.read(runSessionProvider).metrics.distanceKm, beforePause);
   });
 
+  test('pause ignores route points and resume starts a new segment', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+    addTearDown(notifier.reset);
+
+    notifier.processLocationPoint(
+      point(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    notifier.tick(const Duration(seconds: 10));
+    notifier.processLocationPoint(
+      point(latitude: 25.20498, longitude: 55.2708, seconds: 10),
+    );
+
+    notifier.pause();
+    notifier.processLocationPoint(
+      point(latitude: 25.21, longitude: 55.2708, seconds: 20),
+    );
+
+    var route = container.read(runSessionProvider).session!.route;
+    expect(route.segments, hasLength(1));
+    expect(route.segments.single.points, hasLength(2));
+    expect(route.segments.single.isOpen, isFalse);
+
+    notifier.resume();
+    notifier.processLocationPoint(
+      point(latitude: 25.21, longitude: 55.2708, seconds: 30),
+    );
+
+    route = container.read(runSessionProvider).session!.route;
+    expect(route.segments, hasLength(2));
+    expect(route.segments.first.points, hasLength(2));
+    expect(route.segments.last.points, hasLength(1));
+  });
+
   test('finish creates a completed summary', () {
     final container = createContainer();
     final notifier = container.read(runSessionProvider.notifier)..start();
@@ -160,6 +236,26 @@ void main() {
     expect(state.summary?.metrics.elapsed, const Duration(seconds: 30));
   });
 
+  test('finish freezes route and prevents further mutations', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+
+    notifier.processLocationPoint(
+      point(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    notifier.requestFinish();
+    notifier.completeFinish();
+    final route = container.read(runSessionProvider).session!.route;
+
+    notifier.processLocationPoint(
+      point(latitude: 25.20498, longitude: 55.2708, seconds: 10),
+    );
+
+    final frozenRoute = container.read(runSessionProvider).session!.route;
+    expect(frozenRoute, route);
+    expect(frozenRoute.segments.single.isOpen, isFalse);
+  });
+
   test('reset clears active session and summary', () {
     final container = createContainer();
     final notifier = container.read(runSessionProvider.notifier)..start();
@@ -173,6 +269,23 @@ void main() {
     expect(state.status, RunSessionStatus.idle);
     expect(state.session, isNull);
     expect(state.summary, isNull);
+  });
+
+  test('starting a new run starts with an empty route', () {
+    final container = createContainer();
+    final notifier = container.read(runSessionProvider.notifier)..start();
+
+    notifier.processLocationPoint(
+      point(latitude: 25.2048, longitude: 55.2708, seconds: 0),
+    );
+    notifier.requestFinish();
+    notifier.completeFinish();
+
+    notifier.prepare();
+
+    final route = container.read(runSessionProvider).session!.route;
+    expect(route.segments, isEmpty);
+    notifier.reset();
   });
 
   test('invalid transitions are safe no-ops', () {
