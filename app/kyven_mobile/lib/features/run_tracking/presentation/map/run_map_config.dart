@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_palette.dart';
@@ -21,4 +21,6 @@ class RunMapConfig {
   static const routeBorderWidth = 2.25;
   static const routeLineColor = AppPalette.lime;
   static const routeBorderColor = AppPalette.ink;
+  static const historyRoutePadding = EdgeInsets.all(34);
+  static const historyRouteMaxZoom = 17.5;
 }

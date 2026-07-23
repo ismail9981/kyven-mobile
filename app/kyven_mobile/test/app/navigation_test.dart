@@ -6,6 +6,7 @@ import 'package:kyven_mobile/core/theme/app_durations.dart';
 import 'package:kyven_mobile/features/design_system/presentation/screens/design_system_screen.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/start_run_screen.dart';
+import 'package:kyven_mobile/features/training/presentation/screens/training_plan_detail_screen.dart';
 import 'package:kyven_mobile/features/training/presentation/screens/training_screen.dart';
 
 import '../helpers/test_app.dart';
@@ -30,21 +31,27 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
   });
 
-  testWidgets('tab-local selection state is preserved', (tester) async {
+  testWidgets('tab-local training route state is preserved', (tester) async {
     await pumpApp(tester);
 
     await tester.tap(find.byKey(const ValueKey('navigation-Training')));
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('10K')));
+    await tester.pump(AppDurations.slow);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('training-plan-beginner-5k')),
+    );
+    await tester.pump(AppDurations.fast);
+    await tester.tap(find.byKey(const ValueKey('training-plan-beginner-5k')));
     await tester.pump();
-    expect(find.text('10K foundation'), findsOneWidget);
+    await tester.pump(AppDurations.slow);
+    expect(find.byType(TrainingPlanDetailScreen), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('navigation-Home')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('navigation-Training')));
     await tester.pump();
 
-    expect(find.text('10K foundation'), findsOneWidget);
+    expect(find.byType(TrainingPlanDetailScreen), findsOneWidget);
   });
 
   testWidgets('Start Run destination opens from bottom navigation', (

@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/run_route.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/run_route_point.dart';
 import 'package:kyven_mobile/features/run_tracking/domain/entities/run_statistics.dart';
 import 'package:kyven_mobile/features/run_tracking/domain/entities/saved_run.dart';
 import 'package:kyven_mobile/features/run_tracking/infrastructure/repositories/hive_run_history_repository.dart';
+import 'package:kyven_mobile/features/run_tracking/infrastructure/repositories/run_history_schema.dart';
 
 void main() {
   late Directory directory;
@@ -35,6 +38,33 @@ void main() {
     await repository.saveRun(run);
 
     expect(await repository.getRunById('run-1'), run);
+  });
+
+  test('serializes and deserializes saved route segments', () async {
+    final run = _run(id: 'routed', route: _route());
+
+    await repository.saveRun(run);
+
+    final restored = await repository.getRunById('routed');
+    expect(restored?.route, run.route);
+    expect(restored?.route.segments, hasLength(2));
+    expect(restored?.route.segments.first.points, hasLength(2));
+    expect(restored?.route.segments.last.points, hasLength(2));
+  });
+
+  test('route data survives repository reinitialization', () async {
+    await repository.saveRun(_run(id: 'persisted-route', route: _route()));
+    await repository.dispose();
+
+    final restored = HiveRunHistoryRepository(
+      storageDirectory: directory.path,
+      boxName: boxName,
+    );
+    addTearDown(restored.dispose);
+
+    final run = await restored.getRunById('persisted-route');
+    expect(run?.route.segments, hasLength(2));
+    expect(run?.route.segments.first.points.first.latitude, 25.2048);
   });
 
   test('save occurs only once for duplicate run IDs', () async {
@@ -162,6 +192,28 @@ void main() {
 
     expect((await restored.getRunById('persisted'))?.id, 'persisted');
   });
+
+  test('version one records migrate safely with empty route', () async {
+    final box = await Hive.openBox<dynamic>(boxName, path: directory.path);
+    await box.put(RunHistorySchema.versionKey, 1);
+    await box.put('legacy-run', {
+      'id': 'legacy-run',
+      'startedAt': DateTime(2026, 7, 19, 7).toIso8601String(),
+      'completedAt': DateTime(2026, 7, 19, 7, 30).toIso8601String(),
+      'durationMs': const Duration(minutes: 30).inMilliseconds,
+      'distanceKm': 5.0,
+      'averagePaceMs': const Duration(minutes: 6).inMilliseconds,
+      'calories': 340,
+      'cadence': 170,
+      'averageHeartRate': 142,
+      'routePreview': '',
+      'achievement': 'Legacy run',
+    });
+
+    final migrated = await repository.getRunById('legacy-run');
+    expect(migrated?.route.segments, isEmpty);
+    expect(box.get(RunHistorySchema.versionKey), RunHistorySchema.version);
+  });
 }
 
 SavedRun _run({
@@ -170,6 +222,7 @@ SavedRun _run({
   double distanceKm = 5.2,
   Duration duration = const Duration(minutes: 28, seconds: 40),
   Duration? averagePace,
+  RunRoute? route,
 }) {
   final completed = completedAt ?? DateTime(2026, 7, 19, 7, 30);
   return SavedRun(
@@ -190,7 +243,26 @@ SavedRun _run({
     averageHeartRate: 142,
     routePreview: '',
     achievement: 'First movement logged',
+    route: route,
   );
 }
 
 Duration _minutes(int value) => Duration(minutes: value);
+
+RunRoute _route() {
+  return RunRoute.empty()
+      .appendPoint(_routePoint(25.2048, 55.2708, 0))
+      .appendPoint(_routePoint(25.205, 55.271, 60))
+      .closeActiveSegment()
+      .appendPoint(_routePoint(25.206, 55.272, 120))
+      .appendPoint(_routePoint(25.207, 55.273, 180))
+      .closeActiveSegment();
+}
+
+RunRoutePoint _routePoint(double latitude, double longitude, int seconds) {
+  return RunRoutePoint(
+    latitude: latitude,
+    longitude: longitude,
+    timestamp: DateTime(2026, 7, 19, 7).add(Duration(seconds: seconds)),
+  );
+}

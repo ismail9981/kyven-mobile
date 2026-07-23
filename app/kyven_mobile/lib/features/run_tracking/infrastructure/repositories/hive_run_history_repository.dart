@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
+import '../../domain/entities/run_route.dart';
+import '../../domain/entities/run_route_point.dart';
+import '../../domain/entities/run_route_segment.dart';
 import '../../domain/entities/run_statistics.dart';
 import '../../domain/entities/saved_run.dart';
 import '../../domain/repositories/run_history_repository.dart';
@@ -143,6 +146,8 @@ class HiveRunHistoryRepository implements RunHistoryRepository {
       final version = box.get(RunHistorySchema.versionKey);
       if (version == null) {
         await box.put(RunHistorySchema.versionKey, RunHistorySchema.version);
+      } else if (version == 1) {
+        await box.put(RunHistorySchema.versionKey, RunHistorySchema.version);
       } else if (version != RunHistorySchema.version) {
         throw const RunHistoryFailure('Run history needs a migration.');
       }
@@ -186,6 +191,7 @@ abstract final class _RunHistoryMapper {
       'averageHeartRate': run.averageHeartRate,
       'routePreview': run.routePreview,
       'achievement': run.achievement,
+      'route': _RunRouteMapper.toMap(run.route),
     };
   }
 
@@ -229,6 +235,7 @@ abstract final class _RunHistoryMapper {
       averageHeartRate: averageHeartRate,
       routePreview: '${map['routePreview'] ?? ''}',
       achievement: '${map['achievement'] ?? ''}',
+      route: _RunRouteMapper.fromRecord(map['route']),
     );
   }
 
@@ -250,5 +257,86 @@ abstract final class _RunHistoryMapper {
       return value.toDouble();
     }
     return null;
+  }
+}
+
+abstract final class _RunRouteMapper {
+  static Map<String, Object?> toMap(RunRoute route) {
+    return {
+      'segments': route.segments
+          .map(
+            (segment) => {
+              'points': segment.points
+                  .map(
+                    (point) => {
+                      'latitude': point.latitude,
+                      'longitude': point.longitude,
+                      'timestamp': point.timestamp.toIso8601String(),
+                    },
+                  )
+                  .toList(growable: false),
+            },
+          )
+          .toList(growable: false),
+    };
+  }
+
+  static RunRoute fromRecord(Object? record) {
+    if (record is! Map) {
+      return RunRoute.empty();
+    }
+
+    final segmentsRecord = record['segments'];
+    if (segmentsRecord is! Iterable) {
+      return RunRoute.empty();
+    }
+
+    final segments = <RunRouteSegment>[];
+    for (final segmentRecord in segmentsRecord) {
+      final segment = _segmentFromRecord(segmentRecord);
+      if (segment.points.isNotEmpty) {
+        segments.add(segment);
+      }
+    }
+    return RunRoute(segments: segments);
+  }
+
+  static RunRouteSegment _segmentFromRecord(Object? record) {
+    if (record is! Map) {
+      return RunRouteSegment(points: const [], isOpen: false);
+    }
+
+    final pointsRecord = record['points'];
+    if (pointsRecord is! Iterable) {
+      return RunRouteSegment(points: const [], isOpen: false);
+    }
+
+    final points = <RunRoutePoint>[];
+    for (final pointRecord in pointsRecord) {
+      final point = _pointFromRecord(pointRecord);
+      if (point != null) {
+        points.add(point);
+      }
+    }
+    return RunRouteSegment(points: points, isOpen: false);
+  }
+
+  static RunRoutePoint? _pointFromRecord(Object? record) {
+    if (record is! Map) {
+      return null;
+    }
+
+    final latitude = _RunHistoryMapper._doubleValue(record['latitude']);
+    final longitude = _RunHistoryMapper._doubleValue(record['longitude']);
+    final timestamp = DateTime.tryParse('${record['timestamp']}');
+    if (latitude == null || longitude == null || timestamp == null) {
+      return null;
+    }
+
+    return RunRoutePoint(
+      latitude: latitude,
+      longitude: longitude,
+      timestamp: timestamp,
+    );
   }
 }

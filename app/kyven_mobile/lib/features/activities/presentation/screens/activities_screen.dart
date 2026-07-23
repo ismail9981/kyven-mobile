@@ -1,15 +1,5 @@
-import 'package:flutter/material.dart';
+import '../../../analytics/presentation/screens/analytics_dashboard_screen.dart';
 
-import '../../../../shared/widgets/widgets.dart';
-
-class ActivitiesScreen extends StatelessWidget {
+class ActivitiesScreen extends AnalyticsDashboardScreen {
   const ActivitiesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const AppFoundationScreen(
-      title: 'Activities',
-      description: 'Activity history route.',
-    );
-  }
 }

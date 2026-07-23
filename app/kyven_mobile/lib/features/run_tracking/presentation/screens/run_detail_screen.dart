@@ -11,6 +11,7 @@ import '../../../../shared/widgets/widgets.dart';
 import '../../application/run_history_providers.dart';
 import '../../domain/entities/saved_run.dart';
 import '../../domain/services/session_name_generator.dart';
+import '../map/saved_run_route_map.dart';
 import '../widgets/run_metric_formatters.dart';
 import '../widgets/saved_run_formatters.dart';
 
@@ -139,8 +140,10 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                   _RunDetailHero(run: savedRun),
                   const SizedBox(height: AppSpacing.xl),
                   _MetricPanel(run: savedRun),
-                  const SizedBox(height: AppSpacing.xl),
-                  const _RoutePreview(),
+                  if (savedRun.hasRoute) ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    _RoutePreview(run: savedRun),
+                  ],
                   if (savedRun.achievement.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xl),
                     AppStatusBanner(
@@ -323,36 +326,18 @@ class _MetricPanel extends StatelessWidget {
 }
 
 class _RoutePreview extends StatelessWidget {
-  const _RoutePreview();
+  const _RoutePreview({required this.run});
+
+  final SavedRun run;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AppCard(
       semanticLabel: 'Route preview',
       child: SizedBox(
-        height: 152,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: AppKyvenCardMark()),
-            Align(
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.route_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 34,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text('Route preview', style: theme.textTheme.titleMedium),
-                ],
-              ),
-            ),
-          ],
-        ),
+        key: const ValueKey('run-detail-route-map-section'),
+        height: 240,
+        child: SavedRunRouteMap(route: run.route),
       ),
     );
   }

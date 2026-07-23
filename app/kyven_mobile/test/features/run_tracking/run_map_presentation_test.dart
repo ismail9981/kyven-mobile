@@ -10,6 +10,7 @@ import 'package:kyven_mobile/features/run_tracking/domain/entities/run_session.d
 import 'package:kyven_mobile/features/run_tracking/presentation/map/run_current_location_marker.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/map/run_map_camera_controller.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/map/run_map_config.dart';
+import 'package:kyven_mobile/features/run_tracking/presentation/map/run_route_marker.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/map/run_route_polylines.dart';
 
 void main() {
@@ -88,6 +89,25 @@ void main() {
     );
 
     expect(find.bySemanticsLabel('Current runner position'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('start and finish route markers render accessibly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: Row(
+            children: [RunRouteMarker.start(), RunRouteMarker.finish()],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Route start marker'), findsOneWidget);
+    expect(find.bySemanticsLabel('Route finish marker'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

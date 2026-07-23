@@ -8,6 +8,7 @@ enum AppRoute {
   guest(name: 'guest', path: '/guest'),
   home(name: 'home', path: '/'),
   training(name: 'training', path: '/training'),
+  trainingDetail(name: 'training-detail', path: '/training/:planId'),
   run(name: 'run', path: '/run'),
   runLive(name: 'run-live', path: '/run/live'),
   runSummary(name: 'run-summary', path: '/run/summary'),
@@ -16,6 +17,10 @@ enum AppRoute {
   challenges(name: 'challenges', path: '/challenges'),
   profile(name: 'profile', path: '/profile'),
   activities(name: 'activities', path: '/activities'),
+  goals(name: 'goals', path: '/goals'),
+  goalCreate(name: 'goal-create', path: '/goals/create'),
+  goalDetail(name: 'goal-detail', path: '/goals/:goalId'),
+  goalEdit(name: 'goal-edit', path: '/goals/:goalId/edit'),
   notifications(name: 'notifications', path: '/notifications'),
   settings(name: 'settings', path: '/settings'),
   designSystem(name: 'design-system', path: '/design-system');

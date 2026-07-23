@@ -392,6 +392,11 @@ void main() {
       find.byKey(const ValueKey('run-summary-metrics-card')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('run-summary-ai-coach-card')),
+      findsOneWidget,
+    );
+    expect(find.text('AI COACH'), findsOneWidget);
   });
 
   testWidgets('finish persists GPS-derived metrics exactly once', (
@@ -428,6 +433,8 @@ void main() {
     expect(runs.single.distanceKm, closeTo(0.02, 0.004));
     expect(runs.single.averagePace, isNot(Duration.zero));
     expect(runs.single.routePreview, isEmpty);
+    expect(runs.single.route.segments, hasLength(1));
+    expect(runs.single.route.segments.single.points, hasLength(2));
   });
 
   testWidgets('Done resets summary and returns Home', (tester) async {

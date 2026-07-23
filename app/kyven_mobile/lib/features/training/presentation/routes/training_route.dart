@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_route.dart';
+import '../screens/training_plan_detail_screen.dart';
 import '../screens/training_screen.dart';
 
 abstract final class TrainingRoute {
@@ -13,6 +14,17 @@ abstract final class TrainingRoute {
           key: state.pageKey,
           child: const TrainingScreen(),
         ),
+        routes: [
+          GoRoute(
+            name: AppRoute.trainingDetail.name,
+            path: ':planId',
+            builder: (context, state) {
+              return TrainingPlanDetailScreen(
+                planId: state.pathParameters['planId'] ?? '',
+              );
+            },
+          ),
+        ],
       ),
     ],
   );

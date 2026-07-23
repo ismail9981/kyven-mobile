@@ -1,7 +1,9 @@
 import 'package:equatable/equatable.dart';
 
+import 'run_route.dart';
+
 class SavedRun extends Equatable {
-  const SavedRun({
+  SavedRun({
     required this.id,
     required this.startedAt,
     required this.completedAt,
@@ -13,7 +15,8 @@ class SavedRun extends Equatable {
     required this.averageHeartRate,
     required this.routePreview,
     required this.achievement,
-  });
+    RunRoute? route,
+  }) : route = route ?? RunRoute.empty();
 
   final String achievement;
   final int averageHeartRate;
@@ -24,6 +27,7 @@ class SavedRun extends Equatable {
   final double distanceKm;
   final Duration duration;
   final String id;
+  final RunRoute route;
   final String routePreview;
   final DateTime startedAt;
 
@@ -36,6 +40,9 @@ class SavedRun extends Equatable {
       calories >= 0 &&
       cadence >= 0 &&
       averageHeartRate >= 0;
+
+  bool get hasRoute =>
+      route.segments.any((segment) => segment.points.length > 1);
 
   bool get hasFiveKilometerEffort =>
       distanceKm >= 5 && duration > Duration.zero;
@@ -53,5 +60,6 @@ class SavedRun extends Equatable {
     averageHeartRate,
     routePreview,
     achievement,
+    route,
   ];
 }

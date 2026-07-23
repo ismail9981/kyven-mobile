@@ -8,7 +8,14 @@ import '../../../../app/router/app_route.dart';
 import '../../../../core/theme/app_layout.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_theme_colors.dart';
 import '../../../../shared/widgets/widgets.dart';
+import '../../../ai_coach/application/run_analysis_providers.dart';
+import '../../../ai_coach/domain/entities/run_analysis.dart';
+import '../../../gamification/application/gamification_providers.dart';
+import '../../../gamification/presentation/widgets/gamification_reward_card.dart';
+import '../../../goals/application/goals_providers.dart';
+import '../../../goals/presentation/widgets/goal_completion_feedback_card.dart';
 import '../../application/run_history_providers.dart';
 import '../../application/run_session_providers.dart';
 import '../../application/run_session_state.dart';
@@ -29,6 +36,8 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
   var _isSaving = false;
 
   void _done(BuildContext context, WidgetRef ref) {
+    ref.read(latestGamificationRewardProvider.notifier).clear();
+    ref.read(latestCompletedGoalsProvider.notifier).clear();
     ref.read(runSessionProvider.notifier).reset();
     context.goNamed(AppRoute.home.name);
   }
@@ -69,6 +78,8 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
 
     try {
       await ref.read(runHistoryRepositoryProvider).saveRun(run);
+      await ref.read(gamificationCoordinatorProvider).processAfterRunSaved(run);
+      await ref.read(goalsCoordinatorProvider).processAfterRunSaved(run);
       if (mounted) {
         setState(() => _savedRunId = run.id);
       }
@@ -104,6 +115,7 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
       averageHeartRate: metrics.heartRate,
       routePreview: '',
       achievement: summary?.achievement ?? '',
+      route: state.session?.route,
     );
   }
 
@@ -139,6 +151,10 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
     _saveIfNeeded(runState);
 
     final metrics = summary.metrics;
+    final savedRun = _savedRunFromState(runState);
+    final analysis = ref.watch(runAnalysisEngineProvider).analyze(savedRun);
+    final rewardResult = ref.watch(latestGamificationRewardProvider);
+    final completedGoals = ref.watch(latestCompletedGoalsProvider);
     return AppScaffold(
       padding: EdgeInsets.zero,
       body: SingleChildScrollView(
@@ -237,6 +253,16 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+              _AiCoachCard(analysis: analysis),
+              if (rewardResult != null) ...[
+                const SizedBox(height: AppSpacing.xl),
+                GamificationRewardCard(result: rewardResult),
+              ],
+              if (completedGoals.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xl),
+                GoalCompletionFeedbackCard(results: completedGoals),
+              ],
+              const SizedBox(height: AppSpacing.xl),
               const _RoutePreviewCard(),
               if (summary.achievement.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xl),
@@ -291,6 +317,145 @@ class _RunSummaryScreenState extends ConsumerState<RunSummaryScreen> {
         ),
       ),
     );
+  }
+}
+
+class _AiCoachCard extends StatelessWidget {
+  const _AiCoachCard({required this.analysis});
+
+  final RunAnalysis analysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    final scoreColor = _scoreColor(colors);
+
+    return AppCard(
+      key: const ValueKey('run-summary-ai-coach-card'),
+      semanticLabel: 'AI Coach run analysis',
+      variant: AppCardVariant.elevated,
+      glowColor: scoreColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppTag(
+                      label: 'AI Coach',
+                      icon: Icons.auto_awesome_rounded,
+                      color: colors.info,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      analysis.performanceRating.label,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Semantics(
+                label: 'Performance score ${analysis.performanceScore} of 100',
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minWidth: 72,
+                    minHeight: 72,
+                  ),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: scoreColor.withValues(alpha: 0.58),
+                    ),
+                    color: scoreColor.withValues(alpha: 0.10),
+                  ),
+                  child: Text(
+                    '${analysis.performanceScore}',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      color: scoreColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            analysis.summaryText,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.secondaryText,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              AppTag(
+                label: analysis.paceConsistency.label,
+                icon: Icons.speed_rounded,
+                color: colors.highlight,
+              ),
+              AppTag(
+                label: analysis.fatigueLevel.label,
+                icon: Icons.bolt_rounded,
+                color: colors.warning,
+              ),
+              AppTag(
+                label: analysis.recoveryRecommendation.label,
+                icon: Icons.self_improvement_rounded,
+                color: colors.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ...analysis.coachTips.map(
+            (tip) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    color: scoreColor,
+                    size: AppSpacing.lg,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      tip,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.primaryText,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _scoreColor(AppThemeColors colors) {
+    return switch (analysis.performanceRating) {
+      PerformanceRating.exceptional => colors.accent,
+      PerformanceRating.excellent => colors.success,
+      PerformanceRating.strong => colors.info,
+      PerformanceRating.steady => colors.warning,
+      PerformanceRating.recoveryFocus => colors.error,
+    };
   }
 }
 

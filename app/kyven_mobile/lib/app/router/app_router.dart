@@ -6,6 +6,7 @@ import '../../features/activities/presentation/routes/activities_route.dart';
 import '../../features/authentication/presentation/routes/authentication_route.dart';
 import '../../features/challenges/presentation/routes/challenges_route.dart';
 import '../../features/design_system/presentation/routes/design_system_route.dart';
+import '../../features/goals/presentation/routes/goals_route.dart';
 import '../../features/home/presentation/routes/home_route.dart';
 import '../../features/notifications/presentation/routes/notifications_route.dart';
 import '../../features/onboarding/presentation/routes/onboarding_route.dart';
@@ -38,6 +39,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       ActivitiesRoute.route,
+      ...GoalsRoute.routes,
       RunHistoryRoute.route,
       NotificationsRoute.route,
       SettingsRoute.route,

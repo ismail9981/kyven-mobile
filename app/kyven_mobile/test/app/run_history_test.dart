@@ -5,6 +5,8 @@ import 'package:kyven_mobile/app/router/app_route.dart';
 import 'package:kyven_mobile/core/theme/app_durations.dart';
 import 'package:kyven_mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:kyven_mobile/features/profile/presentation/screens/profile_screen.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/run_route.dart';
+import 'package:kyven_mobile/features/run_tracking/domain/entities/run_route_point.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_detail_screen.dart';
 import 'package:kyven_mobile/features/run_tracking/presentation/screens/run_history_screen.dart';
 
@@ -35,6 +37,24 @@ void main() {
     );
     await tester.pump();
     await tester.pump(AppDurations.slow);
+  }
+
+  RunRoute routeFixture() {
+    return RunRoute.empty()
+        .appendPoint(
+          RunRoutePoint(
+            latitude: 25.2048,
+            longitude: 55.2708,
+            timestamp: DateTime(2026, 7, 20, 8),
+          ),
+        )
+        .appendPoint(
+          RunRoutePoint(
+            latitude: 25.2052,
+            longitude: 55.2712,
+            timestamp: DateTime(2026, 7, 20, 8, 1),
+          ),
+        );
   }
 
   Future<void> openHistory(WidgetTester tester) async {
@@ -74,7 +94,34 @@ void main() {
 
     expect(find.byType(RunDetailScreen), findsOneWidget);
     expect(find.text('Motion saved.'), findsOneWidget);
-    expect(find.text('Route preview'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('run-detail-route-map-section')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('run detail renders saved route map and markers', (tester) async {
+    await tester.pumpWidget(
+      testApp(
+        runs: [savedRunFixture(id: 'routed-run', route: routeFixture())],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    final context = tester.element(find.byType(HomeScreen));
+    context.goNamed(
+      AppRoute.runDetail.name,
+      pathParameters: {'runId': 'routed-run'},
+    );
+    await tester.pump();
+    await tester.pump(AppDurations.slow);
+
+    expect(find.byType(RunDetailScreen), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('run-detail-route-map-section')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('delete confirmation can be cancelled', (tester) async {
